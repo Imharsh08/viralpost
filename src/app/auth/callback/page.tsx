@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 export default function AuthCallback() {
@@ -10,8 +10,6 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
-      const supabase = createClient();
-
       try {
         const { data, error } = await supabase.auth.getSession();
 
