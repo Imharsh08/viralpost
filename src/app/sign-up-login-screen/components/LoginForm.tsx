@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Eye, EyeOff, Loader2, Copy, Check, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface LoginFormData {
   email: string;
@@ -15,50 +17,32 @@ interface LoginFormProps {
   onSwitchToSignup: () => void;
 }
 
-const demoCredentials = {
-  email: 'maya.chen@viralpost.app',
-  password: 'Creator2026!',
-};
-
 export default function LoginForm({ onSwitchToSignup }: LoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const { signIn } = useAuth();
+  const router = useRouter();
 
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     defaultValues: { rememberMe: false },
   });
 
-  const handleCopy = async (field: 'email' | 'password') => {
-    await navigator.clipboard.writeText(demoCredentials[field]);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
-
-  const autofillDemo = () => {
-    setValue('email', demoCredentials.email);
-    setValue('password', demoCredentials.password);
-    toast.success('Demo credentials filled in');
-  };
-
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
-    // Backend: POST /api/auth/login with { email, password }
-    await new Promise((r) => setTimeout(r, 1500));
-
-    if (data.email !== demoCredentials.email || data.password !== demoCredentials.password) {
+    try {
+      await signIn(data.email, data.password);
+      toast.success('Welcome back! 🎉');
+      router.push('/');
+    } catch (error: any) {
+      console.error('Login error:', error);
+      toast.error(error.message || 'Failed to sign in. Please check your credentials.');
+    } finally {
       setIsLoading(false);
-      toast.error('Invalid credentials — use the demo account below to sign in');
-      return;
     }
-
-    toast.success('Welcome back, Maya! 🎉');
-    setIsLoading(false);
   };
 
   return (
@@ -192,43 +176,6 @@ export default function LoginForm({ onSwitchToSignup }: LoginFormProps) {
           Create one free →
         </button>
       </p>
-
-      {/* Demo credentials */}
-      <div className="mt-6 p-4 rounded-xl bg-violet-50 border border-violet-200">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-bold text-primary uppercase tracking-wider">Demo Account</p>
-          <button
-            onClick={autofillDemo}
-            className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-lg hover:bg-primary/20 transition-colors active:scale-95"
-          >
-            Autofill →
-          </button>
-        </div>
-        <div className="flex flex-col gap-2">
-          {[
-            { id: 'demo-email', label: 'Email', value: demoCredentials.email, field: 'email' as const },
-            { id: 'demo-pass', label: 'Password', value: demoCredentials.password, field: 'password' as const },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-2">
-              <div>
-                <span className="text-xs text-muted-foreground">{item.label}: </span>
-                <span className="text-xs font-mono font-medium text-foreground">{item.value}</span>
-              </div>
-              <button
-                onClick={() => handleCopy(item.field)}
-                className="text-muted-foreground hover:text-primary transition-colors shrink-0"
-                aria-label={`Copy ${item.label}`}
-              >
-                {copiedField === item.field ? (
-                  <Check size={13} className="text-positive" />
-                ) : (
-                  <Copy size={13} />
-                )}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }

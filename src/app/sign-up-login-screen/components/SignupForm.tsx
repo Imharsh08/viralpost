@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 interface SignupFormData {
   displayName: string;
@@ -21,6 +23,8 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const { signUp } = useAuth();
+  const router = useRouter();
 
   const {
     register,
@@ -32,13 +36,21 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
   const password = watch('password', '');
   const passwordStrength = getPasswordStrength(password);
 
-  const onSubmit = async (_data: SignupFormData) => {
+  const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true);
-    // Backend: POST /api/auth/signup — create user + users row in Supabase + award 50 bonus points
-    await new Promise((r) => setTimeout(r, 1800));
-    setIsLoading(false);
-    setSuccess(true);
-    toast.success('Account created! You earned 50 bonus points 🎉');
+    try {
+      await signUp(data.email, data.password, {
+        fullName: data.displayName,
+        username: data.username,
+      });
+      setSuccess(true);
+      toast.success('Account created! Check your email to verify your account.');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      toast.error(error.message || 'Failed to create account. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (success) {
@@ -47,13 +59,13 @@ export default function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         <div className="w-16 h-16 rounded-2xl bg-positive-bg flex items-center justify-center mb-4">
           <CheckCircle2 size={32} className="text-positive" />
         </div>
-        <h2 className="text-xl font-bold text-foreground mb-2">You&apos;re in! 🎉</h2>
+        <h2 className="text-xl font-bold text-foreground mb-2">Check your email! 📧</h2>
         <p className="text-sm text-muted-foreground mb-2">
-          Your account is ready. We&apos;ve credited your first <strong className="text-amber-600">50 bonus points</strong>.
+          We&apos;ve sent you a verification link. Click it to activate your account.
         </p>
-        <p className="text-xs text-muted-foreground mb-6">Check your email to verify your account.</p>
+        <p className="text-xs text-muted-foreground mb-6">Didn&apos;t receive the email? Check your spam folder.</p>
         <button onClick={onSwitchToLogin} className="btn-primary w-full justify-center py-3">
-          Sign In Now →
+          Back to Sign In →
         </button>
       </div>
     );
