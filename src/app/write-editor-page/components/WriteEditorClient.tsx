@@ -7,6 +7,8 @@ import AiEnhancementPanel from './AiEnhancementPanel';
 import EditorSidebar from './EditorSidebar';
 import PublishBar from './PublishBar';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 export type EditorMode = 'draft' | 'ai-loading' | 'ai-result' | 'publishing';
 
@@ -22,6 +24,7 @@ export default function WriteEditorClient() {
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
   const [activeContent, setActiveContent] = useState<'original' | 'enhanced'>('original');
+  const router = useRouter();
 
   const charCount = content.length;
   const maxChars = 2000;
@@ -63,13 +66,54 @@ export default function WriteEditorClient() {
 
   const handlePublish = async (status: 'published' | 'draft') => {
     setMode('publishing');
-    // Backend: POST /api/posts with { title, original_text: content, ai_enhanced_text: aiResult?.enhanced_text, is_ai_enhanced: !!aiResult, tags: selectedHashtags, status }
-    await new Promise((r) => setTimeout(r, 1400));
-    setMode('draft');
-    if (status === 'published') {
-      toast.success('Post published! You earned +50 bonus points 🎉');
-    } else {
-      toast.success('Draft saved successfully');
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('You must be signed in to publish');
+        setMode('draft');
+        router.push('/sign-up-login-screen');
+        return;
+      }
+
+      const res = await fetch('/api/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          ai_enhanced_text: aiResult?.enhanced_text,
+          is_ai_enhanced: !!aiResult,
+          tags: selectedHashtags,
+          status,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to save post');
+      }
+
+      // Reset editor
+      setTitle('');
+      setContent('');
+      setAiResult(null);
+      setSelectedHashtags([]);
+      setActiveContent('original');
+      setMode('draft');
+
+      if (status === 'published') {
+        toast.success('Post published! You earned +50 bonus points');
+        router.push('/');
+      } else {
+        toast.success('Draft saved successfully');
+      }
+    } catch (error: any) {
+      setMode('draft');
+      toast.error(error.message || 'Failed to save post. Please try again.');
     }
   };
 

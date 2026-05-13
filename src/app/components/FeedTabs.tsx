@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, Clock, Users } from 'lucide-react';
 import PostCard from './PostCard';
 import AdSlotCard from './AdSlotCard';
 import FeedSkeleton from './FeedSkeleton';
-import { mockPosts } from '@/lib/mockData';
+import { mockPosts, type MockPost } from '@/lib/mockData';
 
 const tabs = [
   { id: 'trending', label: 'Trending', icon: TrendingUp },
@@ -13,21 +13,69 @@ const tabs = [
   { id: 'following', label: 'Following', icon: Users },
 ];
 
+function dbPostToMockPost(p: any): MockPost {
+  return {
+    id: p.id,
+    title: p.title || '',
+    excerpt: p.excerpt || p.content?.slice(0, 300) || '',
+    author: {
+      id: p.users?.id || '',
+      username: p.users?.username || 'unknown',
+      displayName: p.users?.display_name || 'Unknown',
+      avatarUrl: p.users?.avatar_url || '',
+      isVerified: p.users?.is_verified || false,
+    },
+    tags: p.tags || [],
+    likes: p.likes_count || 0,
+    comments: p.comments_count || 0,
+    shares: p.shares_count || 0,
+    views: p.views_count || 0,
+    pointsEarned: p.points_earned || 0,
+    timeAgo: '',
+    publishedAt: p.published_at || p.created_at,
+    isLiked: false,
+    isTrending: p.is_trending || false,
+    isAiEnhanced: p.is_ai_enhanced || false,
+  };
+}
+
 export default function FeedTabs() {
   const [activeTab, setActiveTab] = useState('trending');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [dbPosts, setDbPosts] = useState<MockPost[]>([]);
+
+  useEffect(() => {
+    async function loadPosts() {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/posts');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.posts && data.posts.length > 0) {
+            setDbPosts(data.posts.map(dbPostToMockPost));
+          }
+        }
+      } catch {
+        // silently fall back to mock posts
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadPosts();
+  }, []);
 
   const handleTabChange = (tabId: string) => {
     if (tabId === activeTab) return;
-    setLoading(true);
     setActiveTab(tabId);
-    // Backend: fetch feed with ?tab=tabId&cursor=null
-    setTimeout(() => setLoading(false), 600);
   };
 
+  // Merge real posts (newest first) with mock posts as fallback content
+  const allPosts = dbPosts.length > 0 ? [...dbPosts, ...mockPosts] : mockPosts;
   const posts = activeTab === 'following'
-    ? mockPosts.filter((_, i) => i < 3)
-    : mockPosts;
+    ? allPosts.filter((_, i) => i < 3)
+    : activeTab === 'trending'
+    ? allPosts.filter((p) => p.isTrending || dbPosts.some((d) => d.id === p.id))
+    : allPosts;
 
   return (
     <div>
