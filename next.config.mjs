@@ -1,12 +1,8 @@
 import { imageHosts } from './image-hosts.config.mjs';
-import { setupDevPlatform } from '@cloudflare/next-on-pages/next-dev';
-
-if (process.env.NODE_ENV === 'development') {
-  await setupDevPlatform();
-}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'export',
   productionBrowserSourceMaps: false,
   distDir: process.env.DIST_DIR || '.next',
   typescript: {
@@ -18,6 +14,7 @@ const nextConfig = {
   images: {
     remotePatterns: imageHosts,
     minimumCacheTTL: 60,
+    unoptimized: true,
   },
   webpack(
     config,
