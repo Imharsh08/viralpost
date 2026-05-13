@@ -59,24 +59,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
     if (error) throw error;
-
-    // Create user profile if signup was successful
-    if (data.user && !data.user.email_confirmed_at) {
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: data.user.id,
-          display_name: metadata?.fullName || '',
-          username: metadata?.username || '',
-          email: email,
-          points_balance: 50, // Award bonus points
-        });
-      if (profileError) {
-        console.error('Error creating user profile:', profileError);
-        // Don't throw here as the user was created successfully
-      }
-    }
-
     return data;
   };
 
