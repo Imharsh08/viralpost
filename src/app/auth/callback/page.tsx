@@ -11,23 +11,25 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        // Exchange the OAuth code for a session (Google OAuth uses PKCE flow)
+        const code = new URLSearchParams(window.location.search).get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) {
+            console.error('Code exchange error:', error);
+            router.push('/sign-up-login-screen');
+            return;
+          }
+        }
 
-        if (error) {
-          console.error('Auth callback error:', error);
+        const { data, error } = await supabase.auth.getSession();
+        if (error || !data.session) {
           router.push('/sign-up-login-screen');
           return;
         }
-
-        if (data.session) {
-          // User is authenticated, redirect to home
-          router.push('/');
-        } else {
-          // No session, redirect to login
-          router.push('/sign-up-login-screen');
-        }
+        router.push('/');
       } catch (error) {
-        console.error('Unexpected error:', error);
+        console.error('Auth callback error:', error);
         router.push('/sign-up-login-screen');
       }
     };

@@ -36,10 +36,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Listen for auth changes
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Auto-create profile for first-time OAuth (e.g. Google) sign-ins
+      if (event === 'SIGNED_IN' && session?.user) {
+        const u = session.user;
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', u.id)
+          .maybeSingle();
+        if (!existing) {
+          const name = u.user_metadata?.full_name || u.user_metadata?.name || '';
+          const baseUsername = (u.email?.split('@')[0] || 'user').replace(/[^a-z0-9_]/gi, '').toLowerCase();
+          await supabase.from('users').insert({
+            id: u.id,
+            display_name: name,
+            username: baseUsername,
+            email: u.email || '',
+          });
+        }
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -75,6 +95,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     return data;
+  };
+
+  // Google OAuth Sign In
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    if (error) throw error;
   };
 
   // Email/Password Sign In
@@ -123,6 +154,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     getCurrentUser,
     isEmailVerified,
