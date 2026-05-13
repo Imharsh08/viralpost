@@ -40,19 +40,25 @@ export default function WriteEditorClient() {
 
     setMode('ai-loading');
 
-    // Backend: POST /api/ai/enhance with { text: content } — calls Gemini 1.5 Flash
-    await new Promise((r) => setTimeout(r, 2200));
+    try {
+      const res = await fetch('/api/ai/enhance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: content }),
+      });
 
-    const mockResult: AiResult = {
-      enhanced_text: `Is your content getting ignored? Here's why — and how to fix it in 5 minutes.\n\n${content.substring(0, 120)}...\n\nMost creators make 3 critical mistakes:\n\n→ They bury the hook in paragraph 3\n→ They write for themselves, not their reader\n→ They forget to end with a question\n\nHere's the framework that changed everything for me:\n\n**A**ttention → Lead with a bold claim or surprising stat\n**I**nterest → Share the problem your reader recognizes\n**D**esire → Paint the outcome they want\n**A**ction → Ask a question that demands a reply\n\nI've used this on 47 posts. Average engagement rate? 8.3% — 4x the platform average.\n\nWhich mistake are you making right now?`,
-      hashtags: ['#ContentStrategy', '#ViralContent', '#CreatorEconomy', '#Writing', '#PersonalBranding'],
-    };
+      if (!res.ok) throw new Error('Enhancement request failed');
 
-    setAiResult(mockResult);
-    setSelectedHashtags(mockResult.hashtags);
-    setActiveContent('enhanced');
-    setMode('ai-result');
-    toast.success('AI enhancement complete! Review and publish when ready.');
+      const result: AiResult = await res.json();
+      setAiResult(result);
+      setSelectedHashtags(result.hashtags);
+      setActiveContent('enhanced');
+      setMode('ai-result');
+      toast.success('AI enhancement complete! Review and publish when ready.');
+    } catch {
+      setMode('draft');
+      toast.error('Enhancement failed. Please try again.');
+    }
   }, [content, isTooShort, isOverLimit]);
 
   const handlePublish = async (status: 'published' | 'draft') => {

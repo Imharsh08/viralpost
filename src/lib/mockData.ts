@@ -16,6 +16,7 @@ export interface MockPost {
   views: number;
   pointsEarned: number;
   timeAgo: string;
+  publishedAt: string;
   isLiked: boolean;
   isTrending: boolean;
   isAiEnhanced: boolean;
@@ -40,6 +41,7 @@ export const mockPosts: MockPost[] = [
     views: 42300,
     pointsEarned: 423,
     timeAgo: '4h ago',
+    publishedAt: '2026-05-14T10:00:00Z',
     isLiked: false,
     isTrending: true,
     isAiEnhanced: true,
@@ -62,6 +64,7 @@ export const mockPosts: MockPost[] = [
     views: 89100,
     pointsEarned: 891,
     timeAgo: '7h ago',
+    publishedAt: '2026-05-14T07:00:00Z',
     isLiked: true,
     isTrending: true,
     isAiEnhanced: true,
@@ -84,6 +87,7 @@ export const mockPosts: MockPost[] = [
     views: 18700,
     pointsEarned: 187,
     timeAgo: '12h ago',
+    publishedAt: '2026-05-14T02:00:00Z',
     isLiked: false,
     isTrending: false,
     isAiEnhanced: false,
@@ -106,6 +110,7 @@ export const mockPosts: MockPost[] = [
     views: 124000,
     pointsEarned: 1240,
     timeAgo: '1d ago',
+    publishedAt: '2026-05-13T14:00:00Z',
     isLiked: true,
     isTrending: true,
     isAiEnhanced: true,
@@ -128,6 +133,7 @@ export const mockPosts: MockPost[] = [
     views: 56300,
     pointsEarned: 563,
     timeAgo: '1d ago',
+    publishedAt: '2026-05-13T08:00:00Z',
     isLiked: false,
     isTrending: false,
     isAiEnhanced: true,
@@ -150,6 +156,7 @@ export const mockPosts: MockPost[] = [
     views: 187400,
     pointsEarned: 1874,
     timeAgo: '2d ago',
+    publishedAt: '2026-05-12T16:00:00Z',
     isLiked: false,
     isTrending: true,
     isAiEnhanced: true,
@@ -172,6 +179,7 @@ export const mockPosts: MockPost[] = [
     views: 22100,
     pointsEarned: 221,
     timeAgo: '2d ago',
+    publishedAt: '2026-05-12T09:00:00Z',
     isLiked: false,
     isTrending: false,
     isAiEnhanced: false,
@@ -194,6 +202,7 @@ export const mockPosts: MockPost[] = [
     views: 34800,
     pointsEarned: 348,
     timeAgo: '3d ago',
+    publishedAt: '2026-05-11T11:00:00Z',
     isLiked: true,
     isTrending: false,
     isAiEnhanced: true,
@@ -216,6 +225,7 @@ export const mockPosts: MockPost[] = [
     views: 29400,
     pointsEarned: 294,
     timeAgo: '4d ago',
+    publishedAt: '2026-05-10T13:00:00Z',
     isLiked: false,
     isTrending: false,
     isAiEnhanced: false,
@@ -238,6 +248,7 @@ export const mockPosts: MockPost[] = [
     views: 98200,
     pointsEarned: 982,
     timeAgo: '5d ago',
+    publishedAt: '2026-05-09T10:00:00Z',
     isLiked: false,
     isTrending: true,
     isAiEnhanced: true,

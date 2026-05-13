@@ -10,6 +10,17 @@ interface PostCardProps {
   post: MockPost;
 }
 
+function formatPostDate(isoDate: string): string {
+  const date = new Date(isoDate);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    ...(date.getFullYear() !== currentYear && { year: 'numeric' }),
+  });
+}
+
 export default function PostCard({ post }: PostCardProps) {
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likes);
@@ -70,7 +81,7 @@ export default function PostCard({ post }: PostCardProps) {
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-muted-foreground">@{post.author.username}</span>
               <span className="text-xs text-muted-foreground">·</span>
-              <span className="text-xs text-muted-foreground">{post.timeAgo}</span>
+              <span className="text-xs text-muted-foreground">{formatPostDate(post.publishedAt)}</span>
             </div>
           </div>
         </div>
