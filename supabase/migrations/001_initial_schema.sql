@@ -24,7 +24,8 @@ CREATE TABLE users (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   follower_count INTEGER DEFAULT 0,
-  following_count INTEGER DEFAULT 0
+  following_count INTEGER DEFAULT 0,
+  points_balance INTEGER DEFAULT 0
 );
 
 CREATE TABLE posts (
@@ -242,6 +243,17 @@ CREATE POLICY "Users can view own notifications"
 
 CREATE POLICY "Users can update own notifications"
   ON notifications FOR UPDATE USING (user_id = auth.uid());
+
+-- Increment views count (called from edge function, no auth required)
+CREATE OR REPLACE FUNCTION increment_views(post_id UUID)
+RETURNS void AS $$
+BEGIN
+  UPDATE posts SET views_count = views_count + 1 WHERE id = post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute to anon role so unauthenticated views count
+GRANT EXECUTE ON FUNCTION increment_views(UUID) TO anon;
 
 -- Auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at_column()

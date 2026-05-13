@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Heart, MessageCircle, Share2, Zap, TrendingUp, Sparkles, MoreHorizontal, Bookmark, Eye } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import type { MockPost } from '@/lib/mockData';
 
 interface PostCardProps {
@@ -21,21 +23,57 @@ function formatPostDate(isoDate: string): string {
   });
 }
 
+const MOCK_IDS = new Set([
+  'post-001','post-002','post-003','post-004','post-005',
+  'post-006','post-007','post-008','post-009','post-010',
+]);
+
 export default function PostCard({ post }: PostCardProps) {
+  const { session } = useAuth();
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likes);
+  const [viewCount, setViewCount] = useState(post.views);
   const [bookmarked, setBookmarked] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const viewFired = useRef(false);
+  const isMock = MOCK_IDS.has(post.id);
 
-  const handleLike = () => {
-    setLiked(!liked);
-    setLikeCount(liked ? likeCount - 1 : likeCount + 1);
-    // Backend: POST /api/posts/${post.id}/like or DELETE /api/posts/${post.id}/like
+  // Record a view once per mount for real posts
+  useEffect(() => {
+    if (isMock || viewFired.current) return;
+    viewFired.current = true;
+    fetch(`/api/posts/${post.id}/view`, { method: 'POST' }).catch(() => {});
+  }, [post.id, isMock]);
+
+  const handleLike = async () => {
+    if (isMock) { setLiked(!liked); setLikeCount(liked ? likeCount - 1 : likeCount + 1); return; }
+    if (!session) { toast.error('Sign in to like posts'); return; }
+
+    const wasLiked = liked;
+    setLiked(!wasLiked);
+    setLikeCount(wasLiked ? likeCount - 1 : likeCount + 1);
+
+    try {
+      const res = await fetch(`/api/posts/${post.id}/like`, {
+        method: wasLiked ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLikeCount(data.likes_count);
+      }
+    } catch {
+      setLiked(wasLiked);
+      setLikeCount(wasLiked ? likeCount + 1 : likeCount - 1);
+    }
   };
 
-  const handleShare = () => {
-    setShowShareMenu(!showShareMenu);
-    // Backend: POST /api/posts/${post.id}/share
+  const handleShare = () => setShowShareMenu(!showShareMenu);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(`${window.location.origin}/posts/${post.id}`).catch(() => {});
+    toast.success('Link copied!');
+    setShowShareMenu(false);
   };
 
   return (
@@ -59,23 +97,14 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <Link
-                href="#"
-                className="text-sm font-bold text-foreground hover:text-primary transition-colors"
-              >
+              <Link href="#" className="text-sm font-bold text-foreground hover:text-primary transition-colors">
                 {post.author.displayName}
               </Link>
               {post.isTrending && (
-                <span className="badge-trending">
-                  <TrendingUp size={9} />
-                  Trending
-                </span>
+                <span className="badge-trending"><TrendingUp size={9} />Trending</span>
               )}
               {post.isAiEnhanced && (
-                <span className="badge-ai">
-                  <Sparkles size={9} />
-                  AI Enhanced
-                </span>
+                <span className="badge-ai"><Sparkles size={9} />AI Enhanced</span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
@@ -85,8 +114,6 @@ export default function PostCard({ post }: PostCardProps) {
             </div>
           </div>
         </div>
-
-        {/* More menu */}
         <button className="btn-ghost w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <MoreHorizontal size={16} />
         </button>
@@ -95,13 +122,9 @@ export default function PostCard({ post }: PostCardProps) {
       {/* Post content */}
       <div className="mb-3">
         {post.title && (
-          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug">
-            {post.title}
-          </h2>
+          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug">{post.title}</h2>
         )}
-        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">
-          {post.excerpt}
-        </p>
+        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">{post.excerpt}</p>
       </div>
 
       {/* Tags */}
@@ -109,7 +132,7 @@ export default function PostCard({ post }: PostCardProps) {
         <div className="flex flex-wrap gap-1.5 mb-4">
           {post.tags.map((tag) => (
             <span key={`${post.id}-tag-${tag}`} className="badge-tag text-xs">
-              #{tag}
+              #{tag.replace(/^#+/, '')}
             </span>
           ))}
         </div>
@@ -122,14 +145,10 @@ export default function PostCard({ post }: PostCardProps) {
           <button
             onClick={handleLike}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 active:scale-95 ${
-              liked
-                ? 'text-negative bg-negative-bg hover:bg-red-100' :'text-muted-foreground hover:text-negative hover:bg-negative-bg'
+              liked ? 'text-negative bg-negative-bg hover:bg-red-100' : 'text-muted-foreground hover:text-negative hover:bg-negative-bg'
             }`}
           >
-            <Heart
-              size={14}
-              className={liked ? 'fill-negative text-negative' : ''}
-            />
+            <Heart size={14} className={liked ? 'fill-negative text-negative' : ''} />
             <span className="font-mono tabular-nums">{likeCount.toLocaleString()}</span>
           </button>
 
@@ -150,22 +169,13 @@ export default function PostCard({ post }: PostCardProps) {
             </button>
             {showShareMenu && (
               <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[140px] animate-scale-in z-10">
-                <button
-                  onClick={() => { setShowShareMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
+                <button onClick={handleCopyLink} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">
                   Copy link
                 </button>
-                <button
-                  onClick={() => { setShowShareMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
+                <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">
                   Share on X
                 </button>
-                <button
-                  onClick={() => { setShowShareMenu(false); }}
-                  className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
-                >
+                <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">
                   Share on LinkedIn
                 </button>
               </div>
@@ -177,7 +187,7 @@ export default function PostCard({ post }: PostCardProps) {
           {/* Views */}
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <Eye size={12} />
-            <span className="font-mono tabular-nums">{post.views.toLocaleString()}</span>
+            <span className="font-mono tabular-nums">{viewCount.toLocaleString()}</span>
           </div>
 
           {/* Points earned indicator */}
