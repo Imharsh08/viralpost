@@ -15,7 +15,6 @@ export type AuthUser = User
 
 export interface UserProfile {
   id: string
-  auth_id: string
   username: string
   display_name: string
   avatar_url?: string

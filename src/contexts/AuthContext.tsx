@@ -59,6 +59,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
     if (error) throw error;
+
+    if (data.user) {
+      const { error: profileError } = await supabase
+        .from('users')
+        .insert({
+          id: data.user.id,
+          display_name: metadata?.fullName || '',
+          username: metadata?.username || '',
+          email: email,
+        });
+      if (profileError) {
+        console.error('Error creating user profile:', profileError.message);
+      }
+    }
+
     return data;
   };
 
@@ -94,7 +109,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getUserProfile = async () => {
     if (!user) return null;
     const { data, error } = await supabase
-      .from('user_profiles')
+      .from('users')
       .select('*')
       .eq('id', user.id)
       .single();

@@ -1,8 +1,13 @@
 import { imageHosts } from './image-hosts.config.mjs';
+import { setupDevPlatform } from '@cloudflare/next-on-pages/next-dev';
+
+if (process.env.NODE_ENV === 'development') {
+  await setupDevPlatform();
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
   distDir: process.env.DIST_DIR || '.next',
   typescript: {
     ignoreBuildErrors: true,
