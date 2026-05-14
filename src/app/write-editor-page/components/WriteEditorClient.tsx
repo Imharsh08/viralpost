@@ -7,7 +7,7 @@ import AiEnhancementPanel from './AiEnhancementPanel';
 import EditorSidebar from './EditorSidebar';
 import PublishBar from './PublishBar';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 export type EditorMode = 'draft' | 'ai-loading' | 'ai-result' | 'publishing';
@@ -18,6 +18,7 @@ export interface AiResult {
 }
 
 export default function WriteEditorClient() {
+  const { session } = useAuth();
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [mode, setMode] = useState<EditorMode>('draft');
@@ -65,17 +66,14 @@ export default function WriteEditorClient() {
   }, [content, isTooShort, isOverLimit]);
 
   const handlePublish = async (status: 'published' | 'draft') => {
+    if (!session) {
+      toast.error('You must be signed in to publish');
+      router.push('/sign-up-login-screen');
+      return;
+    }
     setMode('publishing');
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error('You must be signed in to publish');
-        setMode('draft');
-        router.push('/sign-up-login-screen');
-        return;
-      }
-
       const res = await fetch('/api/posts', {
         method: 'POST',
         headers: {

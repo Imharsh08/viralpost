@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google';
+import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import '../styles/tailwind.css';
@@ -38,11 +39,6 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
       <head>
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6613650835809676"
-          crossOrigin="anonymous"
-        />
         <meta name="google-adsense-account" content="ca-pub-6613650835809676" />
       </head>
       <body className={plusJakartaSans.className}>
@@ -61,6 +57,14 @@ export default function RootLayout({
               fontSize: '14px',
             },
           }}
+        />
+
+        {/* AdSense — strategy="afterInteractive" avoids Next.js injecting data-component-id */}
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6613650835809676"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
         />
 
         <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fviralpost7072back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.18" />
