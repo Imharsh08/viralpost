@@ -1,8 +1,11 @@
+'use client';
+
 import React from 'react';
-import { TrendingUp, UserPlus, Zap, Hash } from 'lucide-react';
+import { TrendingUp, Zap, Hash } from 'lucide-react';
 import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import { trendingTags, topCreators } from '@/lib/mockData';
+import FollowButton from './FollowButton';
 
 export default function FeedSidebar() {
   return (
@@ -69,10 +72,11 @@ export default function FeedSidebar() {
                   {creator?.weeklyViews?.toLocaleString()} views
                 </p>
               </div>
-              <button className="flex items-center gap-1 px-2.5 py-1 rounded-full border border-border text-xs font-semibold text-muted-foreground hover:border-primary hover:text-primary hover:bg-secondary transition-all duration-150 active:scale-95 shrink-0">
-                <UserPlus size={11} />
-                Follow
-              </button>
+              <FollowButton
+                targetUserId={creator?.id}
+                targetDisplayName={creator?.displayName}
+                variant="compact"
+              />
             </div>
           ))}
         </div>

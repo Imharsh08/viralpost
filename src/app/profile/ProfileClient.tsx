@@ -11,6 +11,8 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
 import { toast } from 'sonner';
+import FollowButton from '@/app/components/FollowButton';
+import { useUserRealtime } from '@/lib/hooks/useUserRealtime';
 
 type Tab = 'posts' | 'drafts' | 'about';
 
@@ -52,6 +54,7 @@ export default function ProfileClient() {
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({ display_name: '', bio: '' });
+  const [followerCount, setFollowerCount] = useState(0);
 
   const authHeader = session ? `Bearer ${session.access_token}` : '';
 
@@ -70,6 +73,7 @@ export default function ProfileClient() {
       .then(({ profile, stats }) => {
         setProfile(profile);
         setStats(stats);
+        setFollowerCount(profile?.follower_count ?? 0);
         setEditForm({ display_name: profile?.display_name ?? '', bio: profile?.bio ?? '' });
       })
       .catch(() => toast.error('Failed to load profile'))
@@ -128,6 +132,9 @@ export default function ProfileClient() {
       toast.error('Failed to delete post');
     }
   };
+
+  // Live follower count via Supabase Realtime
+  const liveFollowerCount = useUserRealtime(profile?.id ?? null, followerCount);
 
   if (loading) return <ProfileSkeleton />;
 
@@ -228,6 +235,14 @@ export default function ProfileClient() {
                   <BarChart2 size={14} />
                   Analytics
                 </Link>
+                {user?.id !== profile?.id && profile?.id && (
+                  <FollowButton
+                    targetUserId={profile.id}
+                    targetDisplayName={profile.display_name}
+                    variant="primary"
+                    onFollowChange={(_, newCount) => setFollowerCount(newCount)}
+                  />
+                )}
               </>
             )}
           </div>
@@ -238,7 +253,7 @@ export default function ProfileClient() {
           <StatPill icon={Globe} label="Published" value={stats?.totalPublished ?? 0} color="text-primary" />
           <StatPill icon={Eye} label="Total Views" value={stats?.totalViews ?? 0} color="text-primary" />
           <StatPill icon={Heart} label="Total Likes" value={stats?.totalLikes ?? 0} color="text-negative" />
-          <StatPill icon={Users} label="Followers" value={profile?.follower_count ?? 0} color="text-positive" />
+          <StatPill icon={Users} label="Followers" value={liveFollowerCount} color="text-positive" />
           <StatPill icon={Zap} label="Points Earned" value={stats?.totalPoints ?? 0} color="text-amber-500" />
         </div>
       </div>

@@ -1,17 +1,45 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, Clock, Users } from 'lucide-react';
 import PostCard from './PostCard';
 import AdSlotCard from './AdSlotCard';
 import FeedSkeleton from './FeedSkeleton';
 import { mockPosts, type MockPost } from '@/lib/mockData';
+import { useAuth } from '@/contexts/AuthContext';
 
 const tabs = [
   { id: 'trending', label: 'Trending', icon: TrendingUp },
   { id: 'latest', label: 'Latest', icon: Clock },
   { id: 'following', label: 'Following', icon: Users },
 ];
+
+// Maps the flat-column shape returned by get_following_feed() RPC
+function dbRpcPostToMockPost(p: any): MockPost {
+  return {
+    id: p.id,
+    title: p.title || '',
+    excerpt: p.excerpt || p.content?.slice(0, 300) || '',
+    author: {
+      id: p.author_id || '',
+      username: p.author_username || 'unknown',
+      displayName: p.author_display_name || 'Unknown',
+      avatarUrl: p.author_avatar_url || '',
+      isVerified: p.author_is_verified || false,
+    },
+    tags: p.tags || [],
+    likes: p.likes_count || 0,
+    comments: p.comments_count || 0,
+    shares: p.shares_count || 0,
+    views: p.views_count || 0,
+    pointsEarned: p.points_earned || 0,
+    timeAgo: '',
+    publishedAt: p.published_at || p.created_at,
+    isLiked: false,
+    isTrending: p.is_trending || false,
+    isAiEnhanced: p.is_ai_enhanced || false,
+  };
+}
 
 function dbPostToMockPost(p: any): MockPost {
   return {
@@ -40,9 +68,13 @@ function dbPostToMockPost(p: any): MockPost {
 }
 
 export default function FeedTabs() {
+  const { session } = useAuth();
   const [activeTab, setActiveTab] = useState('trending');
   const [loading, setLoading] = useState(true);
   const [dbPosts, setDbPosts] = useState<MockPost[]>([]);
+  const [followingPosts, setFollowingPosts] = useState<MockPost[]>([]);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  const followingFetched = useRef(false);
 
   useEffect(() => {
     async function loadPosts() {
@@ -64,15 +96,29 @@ export default function FeedTabs() {
     loadPosts();
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'following' || !session || followingFetched.current) return;
+    followingFetched.current = true;
+    setFollowingLoading(true);
+    fetch('/api/follow/feed', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.posts) setFollowingPosts(data.posts.map(dbRpcPostToMockPost));
+      })
+      .catch(() => {})
+      .finally(() => setFollowingLoading(false));
+  }, [activeTab, session]);
+
   const handleTabChange = (tabId: string) => {
     if (tabId === activeTab) return;
     setActiveTab(tabId);
   };
 
-  // Merge real posts (newest first) with mock posts as fallback content
   const allPosts = dbPosts.length > 0 ? [...dbPosts, ...mockPosts] : mockPosts;
   const posts = activeTab === 'following'
-    ? allPosts.filter((_, i) => i < 3)
+    ? followingPosts
     : activeTab === 'trending'
     ? allPosts.filter((p) => p.isTrending || dbPosts.some((d) => d.id === p.id))
     : allPosts;
@@ -98,9 +144,9 @@ export default function FeedTabs() {
       </div>
 
       {/* Feed list */}
-      {loading ? (
+      {loading || (activeTab === 'following' && followingLoading) ? (
         <FeedSkeleton />
-      ) : activeTab === 'following' && posts.length < 4 ? (
+      ) : activeTab === 'following' && posts.length === 0 ? (
         <FollowingEmptyState />
       ) : (
         <div className="flex flex-col gap-4">

@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { MockPost } from '@/lib/mockData';
 import CommentSection from './CommentSection';
+import FollowButton from './FollowButton';
+import { usePostRealtime } from '@/lib/hooks/usePostRealtime';
 
 interface PostCardProps {
   post: MockPost;
@@ -31,14 +33,27 @@ const MOCK_IDS = new Set([
 export default function PostCard({ post }: PostCardProps) {
   const { session } = useAuth();
   const [liked, setLiked] = useState(post.isLiked);
-  const [likeCount, setLikeCount] = useState(post.likes);
-  const [viewCount, setViewCount] = useState(post.views);
   const [commentCount, setCommentCount] = useState(post.comments);
   const [bookmarked, setBookmarked] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const viewFired = useRef(false);
+  const mutatingRef = useRef(false);
   const isMock = MOCK_IDS.has(post.id);
+
+  const rtCounts = usePostRealtime(
+    post.id,
+    { likes_count: post.likes, comments_count: post.comments, views_count: post.views },
+    isMock
+  );
+
+  const [likeCount, setLikeCount] = useState(post.likes);
+  const viewCount = rtCounts.views_count;
+
+  // Sync realtime likes only when no mutation is in flight
+  useEffect(() => {
+    if (!mutatingRef.current) setLikeCount(rtCounts.likes_count);
+  }, [rtCounts.likes_count]);
 
   useEffect(() => {
     if (isMock || viewFired.current) return;
@@ -52,6 +67,7 @@ export default function PostCard({ post }: PostCardProps) {
     const wasLiked = liked;
     setLiked(!wasLiked);
     setLikeCount(wasLiked ? likeCount - 1 : likeCount + 1);
+    mutatingRef.current = true;
     try {
       const res = await fetch(`/api/posts/${post.id}/like`, {
         method: wasLiked ? 'DELETE' : 'POST',
@@ -64,6 +80,8 @@ export default function PostCard({ post }: PostCardProps) {
     } catch {
       setLiked(wasLiked);
       setLikeCount(wasLiked ? likeCount + 1 : likeCount - 1);
+    } finally {
+      mutatingRef.current = false;
     }
   };
 
@@ -92,12 +110,19 @@ export default function PostCard({ post }: PostCardProps) {
             )}
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Link href="#" className="text-sm font-bold text-foreground hover:text-primary transition-colors">
                 {post.author.displayName}
               </Link>
               {post.isTrending && <span className="badge-trending"><TrendingUp size={9} />Trending</span>}
               {post.isAiEnhanced && <span className="badge-ai"><Sparkles size={9} />AI Enhanced</span>}
+              {!isMock && post.author.id && (
+                <FollowButton
+                  targetUserId={post.author.id}
+                  targetDisplayName={post.author.displayName}
+                  variant="compact"
+                />
+              )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-muted-foreground">@{post.author.username}</span>
