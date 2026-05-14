@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, Send, FileText, Loader2, ChevronDown, Zap } from 'lucide-react';
 import type { EditorMode } from './WriteEditorClient';
 
@@ -9,6 +9,8 @@ interface PublishBarProps {
   isTooShort: boolean;
   isOverLimit: boolean;
   hasContent: boolean;
+  charCount: number;
+  maxChars: number;
   onEnhance: () => void;
   onPublish: (status: 'published' | 'draft') => void;
   selectedHashtags: string[];
@@ -19,124 +21,162 @@ export default function PublishBar({
   isTooShort,
   isOverLimit,
   hasContent,
+  charCount,
+  maxChars,
   onEnhance,
   onPublish,
   selectedHashtags,
 }: PublishBarProps) {
   const [showPublishMenu, setShowPublishMenu] = useState(false);
+  const [showViralHint, setShowViralHint] = useState(false);
   const isEnhancing = mode === 'ai-loading';
   const isPublishing = mode === 'publishing';
   const canEnhance = !isTooShort && !isOverLimit && hasContent && mode === 'draft';
   const canPublish = hasContent && !isOverLimit && (mode === 'draft' || mode === 'ai-result');
+  const enhanced = mode === 'ai-result';
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const seen = window.localStorage.getItem('vp_viral_hint_seen');
+    if (!seen) {
+      setShowViralHint(true);
+      window.localStorage.setItem('vp_viral_hint_seen', '1');
+      const t = setTimeout(() => setShowViralHint(false), 6000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   return (
-    <div className="card p-4 bg-gradient-to-r from-violet-50/50 to-purple-50/50 border-purple-100">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        {/* Left: hashtags preview */}
-        <div className="flex items-center gap-2 flex-wrap min-w-0">
-          {selectedHashtags.length > 0 ? (
-            <>
-              <span className="text-xs text-muted-foreground shrink-0">Tags:</span>
-              {selectedHashtags.slice(0, 3).map((tag) => (
-                <span key={`bar-tag-${tag}`} className="badge-tag text-xs">
-                  {tag}
-                </span>
-              ))}
-              {selectedHashtags.length > 3 && (
-                <span className="text-xs text-muted-foreground">+{selectedHashtags.length - 3} more</span>
-              )}
-            </>
-          ) : (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Zap size={12} className="text-amber-500" />
-              <span>Publish to start earning points from ad impressions</span>
-            </div>
-          )}
-        </div>
-
-        {/* Right: actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {/* Make it Viral button */}
-          {mode !== 'ai-result' && (
-            <button
-              onClick={onEnhance}
-              disabled={!canEnhance || isEnhancing}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                canEnhance
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white hover:from-violet-700 hover:to-purple-700 shadow-sm hover:shadow-card'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {isEnhancing ? (
-                <>
-                  <Loader2 size={15} className="animate-spin" />
-                  Enhancing with AI...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={15} className={canEnhance ? 'fill-yellow-300 text-yellow-300' : ''} />
-                  Make it Viral ✨
-                </>
-              )}
-            </button>
-          )}
-
-          {/* Publish dropdown */}
-          <div className="relative">
-            <div className="flex">
-              <button
-                onClick={() => !isPublishing && canPublish && onPublish('published')}
-                disabled={!canPublish || isPublishing}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-l-xl bg-primary text-primary-foreground text-sm font-bold transition-all duration-150 hover:bg-primary/90 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isPublishing ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" />
-                    Publishing...
-                  </>
-                ) : (
-                  <>
-                    <Send size={15} />
-                    Publish
-                  </>
+    <div className="sticky top-16 z-30 -mx-4 px-4 pt-2 pb-3 bg-background/85 backdrop-blur-md border-b border-border">
+      <div className="card p-3 bg-gradient-to-r from-violet-50 via-purple-50 to-amber-50 border-purple-200 shadow-sm">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Left: status + tags */}
+          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+            <span className={`text-xs font-mono tabular-nums font-bold ${
+              isOverLimit ? 'text-negative' : charCount > 1600 ? 'text-warning' : charCount >= 50 ? 'text-positive' : 'text-muted-foreground'
+            }`}>
+              {charCount.toLocaleString()} / {maxChars.toLocaleString()}
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            {selectedHashtags.length > 0 ? (
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                {selectedHashtags.slice(0, 3).map((tag) => (
+                  <span key={`bar-tag-${tag}`} className="badge-tag text-xs">{tag}</span>
+                ))}
+                {selectedHashtags.length > 3 && (
+                  <span className="text-xs text-muted-foreground">+{selectedHashtags.length - 3}</span>
                 )}
-              </button>
-              <button
-                onClick={() => setShowPublishMenu(!showPublishMenu)}
-                disabled={!canPublish || isPublishing}
-                className="flex items-center justify-center w-9 rounded-r-xl bg-primary text-primary-foreground border-l border-primary-foreground/20 hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                aria-label="More publish options"
-              >
-                <ChevronDown size={14} />
-              </button>
-            </div>
-
-            {showPublishMenu && (
-              <div className="absolute bottom-full right-0 mb-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[160px] animate-scale-in z-20">
-                <button
-                  onClick={() => { onPublish('published'); setShowPublishMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted rounded-lg transition-colors text-left"
-                >
-                  <Send size={14} className="text-primary" />
-                  Publish now
-                </button>
-                <button
-                  onClick={() => { onPublish('draft'); setShowPublishMenu(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left"
-                >
-                  <FileText size={14} />
-                  Save as draft
-                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Zap size={12} className="text-amber-500 fill-amber-300" />
+                <span className="hidden sm:inline">Earn points from every view</span>
               </div>
             )}
           </div>
-        </div>
-      </div>
 
-      {/* AI loading state overlay hint */}
-      {isEnhancing && (
-        <div className="mt-3 pt-3 border-t border-purple-200">
-          <div className="flex items-center gap-2">
+          {/* Right: dominant actions */}
+          <div className="flex items-center gap-2 shrink-0">
+            {!enhanced && (
+              <div className="relative">
+                <button
+                  onClick={onEnhance}
+                  disabled={!canEnhance || isEnhancing}
+                  className={`relative flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md ${
+                    canEnhance
+                      ? 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-amber-500 text-white hover:shadow-lg hover:scale-[1.02]'
+                      : 'bg-muted text-muted-foreground'
+                  } ${canEnhance && !isEnhancing ? 'animate-viral-pulse' : ''}`}
+                >
+                  {isEnhancing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Going Viral…
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} className={canEnhance ? 'fill-yellow-300 text-yellow-300' : ''} />
+                      <span>Make it Viral</span>
+                      <span aria-hidden>✨</span>
+                    </>
+                  )}
+                </button>
+
+                {showViralHint && canEnhance && (
+                  <div className="absolute top-full right-0 mt-2 w-56 bg-foreground text-background text-xs font-medium rounded-xl px-3 py-2 shadow-modal animate-fade-in z-40">
+                    <div className="absolute -top-1.5 right-8 w-3 h-3 rotate-45 bg-foreground" />
+                    Tap here — AI rewrites your post using a proven viral framework.
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="relative">
+              <div className="flex">
+                <button
+                  onClick={() => !isPublishing && canPublish && onPublish('published')}
+                  disabled={!canPublish || isPublishing}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-l-xl text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    enhanced
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md'
+                      : 'bg-foreground/90 text-background hover:bg-foreground'
+                  }`}
+                >
+                  {isPublishing ? (
+                    <>
+                      <Loader2 size={15} className="animate-spin" />
+                      Publishing…
+                    </>
+                  ) : (
+                    <>
+                      <Send size={15} />
+                      Publish
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowPublishMenu(!showPublishMenu)}
+                  disabled={!canPublish || isPublishing}
+                  className={`flex items-center justify-center w-9 rounded-r-xl border-l border-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    enhanced
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      : 'bg-foreground/90 text-background hover:bg-foreground'
+                  }`}
+                  aria-label="More publish options"
+                >
+                  <ChevronDown size={14} />
+                </button>
+              </div>
+
+              {showPublishMenu && (
+                <div className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[180px] animate-scale-in z-40">
+                  <button
+                    onClick={() => { onPublish('published'); setShowPublishMenu(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                  >
+                    <Send size={14} className="text-primary" />
+                    Publish now
+                  </button>
+                  <button
+                    onClick={() => { onPublish('draft'); setShowPublishMenu(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted rounded-lg transition-colors text-left"
+                  >
+                    <FileText size={14} />
+                    Save as draft
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {isTooShort && hasContent && !isEnhancing && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Write {50 - charCount} more characters to unlock <span className="font-bold text-primary">Make it Viral</span>.
+          </p>
+        )}
+        {isEnhancing && (
+          <div className="mt-2 flex items-center gap-2">
             <div className="flex gap-1">
               {[0, 1, 2].map((i) => (
                 <div
@@ -147,11 +187,11 @@ export default function PublishBar({
               ))}
             </div>
             <p className="text-xs text-primary font-medium">
-              Gemini AI is analyzing your content and applying AIDA framework...
+              Claude is rewriting your post with the AIDA viral framework…
             </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

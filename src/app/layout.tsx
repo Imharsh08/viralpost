@@ -37,6 +37,14 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" className={`${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6613650835809676"
+          crossOrigin="anonymous"
+        />
+        <meta name="google-adsense-account" content="ca-pub-6613650835809676" />
+      </head>
       <body className={plusJakartaSans.className}>
         <AuthProvider>
           {children}

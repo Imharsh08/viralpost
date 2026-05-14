@@ -131,23 +131,29 @@ export default function WriteEditorClient() {
   return (
     <div className="max-w-screen-2xl mx-auto">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Write a Post</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Draft your content, enhance with AI, and earn from every view
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`text-sm font-mono tabular-nums font-semibold ${
-            isOverLimit ? 'text-negative' : charCount > 1600 ? 'text-warning' : 'text-muted-foreground'
-          }`}>
-            {charCount.toLocaleString()} / {maxChars.toLocaleString()}
-          </span>
-        </div>
       </div>
 
-      <div className="flex gap-6 xl:gap-8 items-start">
+      {/* Sticky action bar — stays visible while you scroll */}
+      <PublishBar
+        mode={mode}
+        isTooShort={isTooShort}
+        isOverLimit={isOverLimit}
+        hasContent={charCount > 0}
+        charCount={charCount}
+        maxChars={maxChars}
+        onEnhance={handleEnhance}
+        onPublish={handlePublish}
+        selectedHashtags={selectedHashtags}
+      />
+
+      <div className="flex gap-6 xl:gap-8 items-start mt-4">
         {/* Main editor column */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
           {/* Title input */}
@@ -196,16 +202,6 @@ export default function WriteEditorClient() {
             />
           )}
 
-          {/* Publish bar */}
-          <PublishBar
-            mode={mode}
-            isTooShort={isTooShort}
-            isOverLimit={isOverLimit}
-            hasContent={charCount > 0}
-            onEnhance={handleEnhance}
-            onPublish={handlePublish}
-            selectedHashtags={selectedHashtags}
-          />
         </div>
 
         {/* Sidebar */}
