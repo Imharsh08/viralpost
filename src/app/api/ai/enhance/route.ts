@@ -21,29 +21,34 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1024,
+          max_tokens: 1200,
+          system: `You are a viral social media post writer. You ALWAYS output valid JSON and nothing else. No markdown, no explanation, no code fences — raw JSON only.`,
           messages: [
             {
               role: 'user',
-              content: `You are a viral content expert. Transform the following post into a highly engaging, viral-worthy version using the AIDA framework (Attention, Interest, Desire, Action).
+              content: `Rewrite the post below into a viral version using this EXACT structure:
+
+LINE 1: A bold attention hook — a specific number, shocking stat, or challenge to common belief. One sentence only. No emoji.
+BLANK LINE
+LINE 3-4: 1-2 short sentences identifying the problem or tension the reader feels.
+BLANK LINE
+LINES 6-12: The core insight broken into 3-5 short punchy paragraphs (2 sentences max each). Use → bullet for key points if listing.
+BLANK LINE
+LAST LINE: One open-ended question to drive comments. Must start with "What" or "Have you" or "Which" or "How".
 
 Rules:
-- Keep the author's authentic voice and core message
-- Open with a bold hook (specific number, confession, or challenge to common belief)
-- Use short punchy paragraphs and line breaks
-- End with a question that drives comments
-- Suggest 5 relevant hashtags
+- Keep the author's original message and voice — do NOT invent facts
+- Max 300 words total
+- No hashtags in the body text
+- Suggest exactly 5 relevant hashtags as separate array items (include the # symbol, CamelCase)
 
 Original post:
 """
-${text}
+${text.trim()}
 """
 
-Respond with ONLY valid JSON in this exact format:
-{
-  "enhanced_text": "the full enhanced post here",
-  "hashtags": ["#Tag1", "#Tag2", "#Tag3", "#Tag4", "#Tag5"]
-}`,
+Output ONLY this JSON, no other text:
+{"enhanced_text":"<full rewritten post here, use \\n for line breaks>","hashtags":["#Tag1","#Tag2","#Tag3","#Tag4","#Tag5"]}`,
             },
           ],
         }),

@@ -148,6 +148,8 @@ export default function WriteEditorClient() {
         maxChars={maxChars}
         onEnhance={handleEnhance}
         onPublish={handlePublish}
+        onUseEnhanced={handleUseEnhanced}
+        onKeepOriginal={handleResetToOriginal}
         selectedHashtags={selectedHashtags}
       />
 

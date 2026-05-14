@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles, RotateCcw, Check, Edit3, X, Plus } from 'lucide-react';
+import { Sparkles, RotateCcw, Edit3, X, Check, Plus } from 'lucide-react';
 import type { AiResult } from './WriteEditorClient';
 
 interface AiEnhancementPanelProps {
@@ -78,7 +78,7 @@ export default function AiEnhancementPanel({
               <span className="text-xs font-bold text-primary uppercase tracking-wider">AI Enhanced</span>
               <span className="badge-ai text-[10px]">
                 <Sparkles size={8} />
-                Gemini 1.5
+                Viral
               </span>
             </div>
             <button
@@ -160,22 +160,10 @@ export default function AiEnhancementPanel({
         </p>
       </div>
 
-      {/* Use enhanced / discard */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onUseEnhanced}
-          className="btn-primary flex-1 justify-center py-3"
-        >
-          <Check size={15} />
-          Use Enhanced Version
-        </button>
-        <button
-          onClick={onResetToOriginal}
-          className="btn-ghost border border-border px-4 py-3 rounded-xl text-sm"
-        >
-          Keep Original
-        </button>
-      </div>
+      {/* Hint: action buttons are in the top bar */}
+      <p className="text-xs text-muted-foreground text-center pb-1">
+        Use the <span className="font-semibold text-positive">Use Enhanced</span> or <span className="font-semibold">Keep Original</span> buttons above to proceed.
+      </p>
     </div>
   );
 }

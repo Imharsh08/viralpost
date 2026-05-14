@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Send, FileText, Loader2, ChevronDown, Zap } from 'lucide-react';
+import { Sparkles, Send, FileText, Loader2, ChevronDown, Zap, Check, RotateCcw } from 'lucide-react';
 import type { EditorMode } from './WriteEditorClient';
 
 interface PublishBarProps {
@@ -13,6 +13,8 @@ interface PublishBarProps {
   maxChars: number;
   onEnhance: () => void;
   onPublish: (status: 'published' | 'draft') => void;
+  onUseEnhanced?: () => void;
+  onKeepOriginal?: () => void;
   selectedHashtags: string[];
 }
 
@@ -25,6 +27,8 @@ export default function PublishBar({
   maxChars,
   onEnhance,
   onPublish,
+  onUseEnhanced,
+  onKeepOriginal,
   selectedHashtags,
 }: PublishBarProps) {
   const [showPublishMenu, setShowPublishMenu] = useState(false);
@@ -76,7 +80,27 @@ export default function PublishBar({
           </div>
 
           {/* Right: dominant actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+            {/* Use Enhanced / Keep Original — shown when AI result is ready */}
+            {enhanced && (
+              <>
+                <button
+                  onClick={onKeepOriginal}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150 active:scale-95"
+                >
+                  <RotateCcw size={14} />
+                  Keep Original
+                </button>
+                <button
+                  onClick={onUseEnhanced}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-positive text-white text-sm font-bold shadow-sm hover:opacity-90 transition-all duration-150 active:scale-95"
+                >
+                  <Check size={14} />
+                  Use Enhanced
+                </button>
+              </>
+            )}
+
             {!enhanced && (
               <div className="relative">
                 <button
