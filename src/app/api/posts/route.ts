@@ -3,6 +3,16 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
+function getUserIdFromToken(authHeader: string): string | null {
+  try {
+    const token = authHeader.replace('Bearer ', '');
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,20 +22,19 @@ export async function POST(request: NextRequest) {
       return Response.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    // Forward the user's auth token so RLS policies apply
     const authHeader = request.headers.get('Authorization');
     if (!authHeader) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = getUserIdFromToken(authHeader);
+    if (!userId) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
-    }
 
     const body = await request.json();
     const { title, content, ai_enhanced_text, is_ai_enhanced, tags, status } = body;
@@ -40,7 +49,7 @@ export async function POST(request: NextRequest) {
     const { data: post, error: insertError } = await supabase
       .from('posts')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         title: title?.trim() || '',
         content: finalContent,
         excerpt,

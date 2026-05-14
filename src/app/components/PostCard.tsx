@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Heart, MessageCircle, Share2, Zap, TrendingUp, Sparkles, MoreHorizontal, Bookmark, Eye } from 'lucide-react';
+import { Heart, Share2, Zap, TrendingUp, Sparkles, MoreHorizontal, Bookmark, Eye } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import type { MockPost } from '@/lib/mockData';
+import CommentSection from './CommentSection';
 
 interface PostCardProps {
   post: MockPost;
@@ -15,11 +16,10 @@ interface PostCardProps {
 function formatPostDate(isoDate: string): string {
   const date = new Date(isoDate);
   const now = new Date();
-  const currentYear = now.getFullYear();
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
-    ...(date.getFullYear() !== currentYear && { year: 'numeric' }),
+    ...(date.getFullYear() !== now.getFullYear() && { year: 'numeric' }),
   });
 }
 
@@ -33,12 +33,13 @@ export default function PostCard({ post }: PostCardProps) {
   const [liked, setLiked] = useState(post.isLiked);
   const [likeCount, setLikeCount] = useState(post.likes);
   const [viewCount, setViewCount] = useState(post.views);
+  const [commentCount, setCommentCount] = useState(post.comments);
   const [bookmarked, setBookmarked] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const viewFired = useRef(false);
   const isMock = MOCK_IDS.has(post.id);
 
-  // Record a view once per mount for real posts
   useEffect(() => {
     if (isMock || viewFired.current) return;
     viewFired.current = true;
@@ -48,11 +49,9 @@ export default function PostCard({ post }: PostCardProps) {
   const handleLike = async () => {
     if (isMock) { setLiked(!liked); setLikeCount(liked ? likeCount - 1 : likeCount + 1); return; }
     if (!session) { toast.error('Sign in to like posts'); return; }
-
     const wasLiked = liked;
     setLiked(!wasLiked);
     setLikeCount(wasLiked ? likeCount - 1 : likeCount + 1);
-
     try {
       const res = await fetch(`/api/posts/${post.id}/like`, {
         method: wasLiked ? 'DELETE' : 'POST',
@@ -67,8 +66,6 @@ export default function PostCard({ post }: PostCardProps) {
       setLikeCount(wasLiked ? likeCount + 1 : likeCount - 1);
     }
   };
-
-  const handleShare = () => setShowShareMenu(!showShareMenu);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(`${window.location.origin}/posts/${post.id}`).catch(() => {});
@@ -85,8 +82,7 @@ export default function PostCard({ post }: PostCardProps) {
             <AppImage
               src={post.author.avatarUrl}
               alt={`${post.author.displayName} profile photo`}
-              width={40}
-              height={40}
+              width={40} height={40}
               className="w-10 h-10 rounded-full object-cover border-2 border-border"
             />
             {post.author.isVerified && (
@@ -100,12 +96,8 @@ export default function PostCard({ post }: PostCardProps) {
               <Link href="#" className="text-sm font-bold text-foreground hover:text-primary transition-colors">
                 {post.author.displayName}
               </Link>
-              {post.isTrending && (
-                <span className="badge-trending"><TrendingUp size={9} />Trending</span>
-              )}
-              {post.isAiEnhanced && (
-                <span className="badge-ai"><Sparkles size={9} />AI Enhanced</span>
-              )}
+              {post.isTrending && <span className="badge-trending"><TrendingUp size={9} />Trending</span>}
+              {post.isAiEnhanced && <span className="badge-ai"><Sparkles size={9} />AI Enhanced</span>}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-muted-foreground">@{post.author.username}</span>
@@ -119,11 +111,9 @@ export default function PostCard({ post }: PostCardProps) {
         </button>
       </div>
 
-      {/* Post content */}
+      {/* Content */}
       <div className="mb-3">
-        {post.title && (
-          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug">{post.title}</h2>
-        )}
+        {post.title && <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug">{post.title}</h2>}
         <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">{post.excerpt}</p>
       </div>
 
@@ -139,73 +129,80 @@ export default function PostCard({ post }: PostCardProps) {
       )}
 
       {/* Engagement row */}
-      <div className="flex items-center justify-between pt-3 border-t border-border">
-        <div className="flex items-center gap-1">
-          {/* Like */}
-          <button
-            onClick={handleLike}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 active:scale-95 ${
-              liked ? 'text-negative bg-negative-bg hover:bg-red-100' : 'text-muted-foreground hover:text-negative hover:bg-negative-bg'
-            }`}
-          >
-            <Heart size={14} className={liked ? 'fill-negative text-negative' : ''} />
-            <span className="font-mono tabular-nums">{likeCount.toLocaleString()}</span>
-          </button>
-
-          {/* Comments */}
-          <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-primary hover:bg-secondary transition-all duration-150 active:scale-95">
-            <MessageCircle size={14} />
-            <span className="font-mono tabular-nums">{post.comments.toLocaleString()}</span>
-          </button>
-
-          {/* Share */}
-          <div className="relative">
+      <div className="pt-3 border-t border-border">
+        <div className="flex items-center justify-between">
+          {/* Left actions */}
+          <div className="flex items-center gap-1">
+            {/* Like */}
             <button
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-positive hover:bg-positive-bg transition-all duration-150 active:scale-95"
+              onClick={handleLike}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 active:scale-95 ${
+                liked ? 'text-negative bg-negative-bg hover:bg-red-100' : 'text-muted-foreground hover:text-negative hover:bg-negative-bg'
+              }`}
             >
-              <Share2 size={14} />
-              <span className="font-mono tabular-nums">{post.shares.toLocaleString()}</span>
+              <Heart size={14} className={liked ? 'fill-negative text-negative' : ''} />
+              <span className="font-mono tabular-nums">{likeCount.toLocaleString()}</span>
             </button>
-            {showShareMenu && (
-              <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[140px] animate-scale-in z-10">
-                <button onClick={handleCopyLink} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">
-                  Copy link
-                </button>
-                <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">
-                  Share on X
-                </button>
-                <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">
-                  Share on LinkedIn
-                </button>
-              </div>
-            )}
+
+            {/* Comment toggle */}
+            <CommentSection
+              postId={post.id}
+              commentCount={commentCount}
+              onCountChange={setCommentCount}
+              open={commentsOpen}
+              onToggle={() => setCommentsOpen((v) => !v)}
+              renderPanelOnly={false}
+            />
+
+            {/* Share */}
+            <div className="relative">
+              <button
+                onClick={() => setShowShareMenu(!showShareMenu)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-positive hover:bg-positive-bg transition-all duration-150 active:scale-95"
+              >
+                <Share2 size={14} />
+                <span className="font-mono tabular-nums">{post.shares.toLocaleString()}</span>
+              </button>
+              {showShareMenu && (
+                <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[140px] animate-scale-in z-10">
+                  <button onClick={handleCopyLink} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">Copy link</button>
+                  <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">Share on X</button>
+                  <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">Share on LinkedIn</button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right stats */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Eye size={12} />
+              <span className="font-mono tabular-nums">{viewCount.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-100">
+              <Zap size={10} className="text-amber-500 fill-amber-400" />
+              <span className="text-xs font-bold text-amber-700 font-mono tabular-nums">+{post.pointsEarned}</span>
+            </div>
+            <button
+              onClick={() => setBookmarked(!bookmarked)}
+              className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150 active:scale-95 ${
+                bookmarked ? 'text-primary bg-secondary' : 'text-muted-foreground hover:text-primary hover:bg-secondary'
+              }`}
+            >
+              <Bookmark size={13} className={bookmarked ? 'fill-primary' : ''} />
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Views */}
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Eye size={12} />
-            <span className="font-mono tabular-nums">{viewCount.toLocaleString()}</span>
-          </div>
-
-          {/* Points earned indicator */}
-          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-100">
-            <Zap size={10} className="text-amber-500 fill-amber-400" />
-            <span className="text-xs font-bold text-amber-700 font-mono tabular-nums">+{post.pointsEarned}</span>
-          </div>
-
-          {/* Bookmark */}
-          <button
-            onClick={() => setBookmarked(!bookmarked)}
-            className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150 active:scale-95 ${
-              bookmarked ? 'text-primary bg-secondary' : 'text-muted-foreground hover:text-primary hover:bg-secondary'
-            }`}
-          >
-            <Bookmark size={13} className={bookmarked ? 'fill-primary' : ''} />
-          </button>
-        </div>
+        {/* Comment panel below engagement row */}
+        <CommentSection
+          postId={post.id}
+          commentCount={commentCount}
+          onCountChange={setCommentCount}
+          open={commentsOpen}
+          onToggle={() => setCommentsOpen((v) => !v)}
+          renderPanelOnly
+        />
       </div>
     </article>
   );
