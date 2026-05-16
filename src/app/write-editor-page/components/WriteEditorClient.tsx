@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import EditorToolbar from './EditorToolbar';
 import EditorTextarea from './EditorTextarea';
 import AiEnhancementPanel from './AiEnhancementPanel';
 import EditorSidebar from './EditorSidebar';
 import PublishBar from './PublishBar';
+import CoverImageUpload from './CoverImageUpload';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { FileText, Check, Loader2 } from 'lucide-react';
 
 export type EditorMode = 'draft' | 'ai-loading' | 'ai-result' | 'publishing';
 
@@ -19,13 +22,83 @@ export interface AiResult {
 
 export default function WriteEditorClient() {
   const { session } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const draftIdFromUrl = searchParams.get('draft');
+
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [mode, setMode] = useState<EditorMode>('draft');
   const [aiResult, setAiResult] = useState<AiResult | null>(null);
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
   const [activeContent, setActiveContent] = useState<'original' | 'enhanced'>('original');
-  const router = useRouter();
+  const [coverImage, setCoverImage] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+
+  // Load a draft if ?draft=ID is in the URL
+  useEffect(() => {
+    if (!draftIdFromUrl || !session) return;
+    fetch(`/api/posts/${draftIdFromUrl}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.post && !data.post.published_at) {
+          setDraftId(data.post.id);
+          setTitle(data.post.title ?? '');
+          setContent(data.post.content ?? '');
+          setSelectedHashtags(data.post.tags ?? []);
+          setCoverImage(data.post.featured_image_url ?? null);
+          toast.success('Draft loaded');
+        }
+      })
+      .catch(() => toast.error('Could not load draft'));
+  }, [draftIdFromUrl, session]);
+
+  // Auto-save drafts every 30s while editing (PRD §6.3)
+  const autosaveLatest = useRef({ title, content, selectedHashtags, coverImage, draftId, session });
+  useEffect(() => {
+    autosaveLatest.current = { title, content, selectedHashtags, coverImage, draftId, session };
+  });
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const cur = autosaveLatest.current;
+      if (!cur.session) return;
+      if (!cur.content || cur.content.trim().length < 1) return;
+      // Only autosave while actively drafting — skip while AI is running or publishing
+      if (mode !== 'draft') return;
+
+      setAutosaveState('saving');
+      try {
+        const res = await fetch('/api/posts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${cur.session.access_token}`,
+          },
+          body: JSON.stringify({
+            id: cur.draftId,
+            title: cur.title,
+            content: cur.content,
+            tags: cur.selectedHashtags,
+            featured_image_url: cur.coverImage,
+            status: 'draft',
+          }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cur.draftId && data.id) setDraftId(data.id);
+        setAutosaveState('saved');
+        setLastSavedAt(new Date());
+      } catch {
+        setAutosaveState('idle');
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [mode]);
 
   const charCount = content.length;
   const maxChars = 2000;
@@ -81,11 +154,13 @@ export default function WriteEditorClient() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
+          id: draftId,
           title,
           content,
           ai_enhanced_text: aiResult?.enhanced_text,
           is_ai_enhanced: !!aiResult,
           tags: selectedHashtags,
+          featured_image_url: coverImage,
           status,
         }),
       });
@@ -101,6 +176,8 @@ export default function WriteEditorClient() {
       setAiResult(null);
       setSelectedHashtags([]);
       setActiveContent('original');
+      setCoverImage(null);
+      setDraftId(null);
       setMode('draft');
 
       if (status === 'published') {
@@ -129,12 +206,35 @@ export default function WriteEditorClient() {
   return (
     <div className="max-w-screen-2xl mx-auto">
       {/* Page header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Write a Post</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Draft your content, enhance with AI, and earn from every view
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {autosaveState !== 'idle' && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              {autosaveState === 'saving' ? (
+                <>
+                  <Loader2 size={11} className="animate-spin" />
+                  Saving draft…
+                </>
+              ) : (
+                <>
+                  <Check size={11} className="text-positive" />
+                  Saved{lastSavedAt ? ` ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                </>
+              )}
+            </span>
+          )}
+          {session && (
+            <Link href="/drafts" className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary transition-colors">
+              <FileText size={14} />
+              My Drafts
+            </Link>
+          )}
         </div>
       </div>
 
@@ -170,6 +270,9 @@ export default function WriteEditorClient() {
               maxLength={120}
             />
           </div>
+
+          {/* Cover image */}
+          <CoverImageUpload value={coverImage} onChange={setCoverImage} />
 
           {/* Toolbar */}
           <EditorToolbar />

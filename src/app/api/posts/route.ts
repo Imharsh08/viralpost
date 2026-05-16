@@ -37,26 +37,48 @@ export async function POST(request: NextRequest) {
     });
 
     const body = await request.json();
-    const { title, content, ai_enhanced_text, is_ai_enhanced, tags, status } = body;
+    const { id, title, content, ai_enhanced_text, is_ai_enhanced, tags, status, featured_image_url } = body;
 
-    if (!content || content.trim().length < 10) {
+    // Drafts allow shorter content; published posts must have ≥10 chars
+    const minLen = status === 'published' ? 10 : 1;
+    if (!content || content.trim().length < minLen) {
       return Response.json({ error: 'Content is required' }, { status: 400 });
     }
 
     const excerpt = content.slice(0, 300);
     const finalContent = is_ai_enhanced && ai_enhanced_text ? ai_enhanced_text : content;
 
+    const payload: Record<string, any> = {
+      user_id: userId,
+      title: title?.trim() || '',
+      content: finalContent,
+      excerpt,
+      tags: tags ?? [],
+      is_ai_enhanced: !!is_ai_enhanced,
+      published_at: status === 'published' ? new Date().toISOString() : null,
+    };
+    if (typeof featured_image_url === 'string') payload.featured_image_url = featured_image_url;
+
+    if (id) {
+      // Update an existing draft (auto-save or publish-from-draft)
+      const { data: post, error: updateError } = await supabase
+        .from('posts')
+        .update(payload)
+        .eq('id', id)
+        .eq('user_id', userId)
+        .select('id')
+        .single();
+
+      if (updateError) {
+        console.error('Update error:', updateError);
+        return Response.json({ error: updateError.message }, { status: 500 });
+      }
+      return Response.json({ id: post.id, status });
+    }
+
     const { data: post, error: insertError } = await supabase
       .from('posts')
-      .insert({
-        user_id: userId,
-        title: title?.trim() || '',
-        content: finalContent,
-        excerpt,
-        tags: tags ?? [],
-        is_ai_enhanced: !!is_ai_enhanced,
-        published_at: status === 'published' ? new Date().toISOString() : null,
-      })
+      .insert(payload)
       .select('id')
       .single();
 

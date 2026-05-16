@@ -33,12 +33,33 @@ interface ProfileStats {
   totalDrafts: number;
 }
 
+interface PointsSummary {
+  total_lifetime: number;
+  total_this_week: number;
+  pts_from_likes: number;
+  pts_from_follows: number;
+  pts_from_milestones: number;
+  pts_from_bonus: number;
+}
+
+interface LedgerEntry {
+  id: string;
+  event_type: string;
+  points: number;
+  post_id: string | null;
+  metadata: any;
+  created_at: string;
+}
+
 export default function AnalyticsClient() {
   const router = useRouter();
   const { user, session } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [stats, setStats] = useState<ProfileStats | null>(null);
   const [followerCount, setFollowerCount] = useState(0);
+  const [balance, setBalance] = useState(0);
+  const [pointsSummary, setPointsSummary] = useState<PointsSummary | null>(null);
+  const [recentLedger, setRecentLedger] = useState<LedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<'views' | 'likes' | 'points' | 'date'>('views');
 
@@ -55,11 +76,15 @@ export default function AnalyticsClient() {
     Promise.all([
       fetch('/api/user/profile', { headers: { Authorization: authHeader } }).then((r) => r.json()),
       fetch('/api/user/posts?filter=published', { headers: { Authorization: authHeader } }).then((r) => r.json()),
+      fetch('/api/points', { headers: { Authorization: authHeader } }).then((r) => r.json()),
     ])
-      .then(([profileData, postsData]) => {
+      .then(([profileData, postsData, pointsData]) => {
         setStats(profileData.stats);
         setFollowerCount(profileData.profile?.follower_count ?? 0);
         setPosts(postsData.posts ?? []);
+        setBalance(pointsData.balance ?? 0);
+        setPointsSummary(pointsData.summary ?? null);
+        setRecentLedger(pointsData.recent ?? []);
       })
       .catch(() => toast.error('Failed to load analytics'))
       .finally(() => setLoading(false));
@@ -125,11 +150,11 @@ export default function AnalyticsClient() {
         />
         <SummaryCard
           icon={Zap}
-          label="Points Earned"
-          value={stats?.totalPoints ?? 0}
+          label="Available Points"
+          value={balance}
           iconColor="text-amber-500"
           bgColor="bg-amber-50"
-          sub={`${stats?.totalPublished ?? 0} published posts`}
+          sub={`+${(pointsSummary?.total_this_week ?? 0).toLocaleString()} this week`}
           highlight
         />
       </div>
@@ -266,6 +291,56 @@ export default function AnalyticsClient() {
         )}
       </div>
 
+      {/* Points breakdown + recent activity */}
+      {pointsSummary && (pointsSummary.total_lifetime > 0 || recentLedger.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Zap size={15} className="text-amber-500 fill-amber-400" />
+              <h2 className="text-sm font-bold text-foreground">Points Breakdown</h2>
+              <span className="text-xs text-muted-foreground ml-auto">
+                {pointsSummary.total_lifetime.toLocaleString()} lifetime
+              </span>
+            </div>
+            <BreakdownBar
+              segments={[
+                { label: 'Likes', value: pointsSummary.pts_from_likes, color: 'bg-rose-400' },
+                { label: 'Followers', value: pointsSummary.pts_from_follows, color: 'bg-emerald-400' },
+                { label: 'Milestones', value: pointsSummary.pts_from_milestones, color: 'bg-violet-400' },
+                { label: 'Bonus', value: pointsSummary.pts_from_bonus, color: 'bg-amber-400' },
+              ]}
+            />
+          </div>
+
+          <div className="card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart2 size={15} className="text-primary" />
+              <h2 className="text-sm font-bold text-foreground">Recent Activity</h2>
+            </div>
+            {recentLedger.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">
+                No points activity yet. Publish your first post to start earning.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
+                {recentLedger.map((entry) => (
+                  <li key={entry.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground">{ledgerEventLabel(entry.event_type)}</span>
+                      <span className="text-muted-foreground/60">·</span>
+                      <span className="text-muted-foreground/70">{relTime(entry.created_at)}</span>
+                    </div>
+                    <span className={`font-mono tabular-nums font-bold shrink-0 ${entry.points > 0 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                      {entry.points > 0 ? '+' : ''}{entry.points}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Points info */}
       <div className="card p-5 mt-4 bg-amber-50/50 border-amber-100">
         <div className="flex items-center gap-2 mb-3">
@@ -324,6 +399,67 @@ function MetricCard({ label, value, desc }: { label: string; value: string; desc
       <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
     </div>
   );
+}
+
+function BreakdownBar({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  if (total === 0) {
+    return (
+      <p className="text-xs text-muted-foreground text-center py-4">
+        No points earned yet. Like, follow, and write to start your breakdown.
+      </p>
+    );
+  }
+  return (
+    <>
+      <div className="flex h-2.5 w-full rounded-full overflow-hidden bg-muted mb-3">
+        {segments.map((seg) => {
+          const pct = (seg.value / total) * 100;
+          if (pct === 0) return null;
+          return <div key={seg.label} className={seg.color} style={{ width: `${pct}%` }} />;
+        })}
+      </div>
+      <ul className="flex flex-col gap-1.5">
+        {segments.map((seg) => {
+          const pct = total ? Math.round((seg.value / total) * 100) : 0;
+          return (
+            <li key={seg.label} className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-2 text-foreground">
+                <span className={`w-2.5 h-2.5 rounded-full ${seg.color}`} />
+                {seg.label}
+              </span>
+              <span className="font-mono tabular-nums text-muted-foreground">
+                <span className="font-bold text-foreground">{seg.value.toLocaleString()}</span> · {pct}%
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
+function ledgerEventLabel(type: string): string {
+  switch (type) {
+    case 'like': return 'Like on your post';
+    case 'follow': return 'New follower';
+    case 'milestone': return 'View milestone';
+    case 'first_post_bonus': return 'First post bonus';
+    case 'profile_completeness': return 'Profile complete';
+    case 'ad_view': return 'Ad view';
+    case 'ad_click': return 'Ad click';
+    default: return type.replace(/_/g, ' ');
+  }
+}
+
+function relTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
 }
 
 function AnalyticsSkeleton() {

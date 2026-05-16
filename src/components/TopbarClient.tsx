@@ -76,20 +76,31 @@ export default function TopbarClient() {
         {/* Search */}
         <div className={`relative transition-all duration-300 ${searchOpen ? 'w-64' : 'w-9'}`}>
           {searchOpen ? (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-muted animate-fade-in">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const q = (e.currentTarget.elements.namedItem('q') as HTMLInputElement)?.value.trim();
+                if (q) {
+                  router.push(`/search?q=${encodeURIComponent(q)}`);
+                  setSearchOpen(false);
+                }
+              }}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-muted animate-fade-in focus-within:border-primary focus-within:bg-card"
+            >
               <Search size={15} className="text-muted-foreground shrink-0" />
               <input
                 autoFocus
                 type="text"
+                name="q"
                 placeholder="Search posts, creators..."
                 className="bg-transparent text-sm outline-none w-full text-foreground placeholder:text-muted-foreground"
-                onBlur={() => setSearchOpen(false)}
+                onBlur={() => setTimeout(() => setSearchOpen(false), 150)}
               />
-            </div>
+            </form>
           ) : (
-            <button onClick={() => setSearchOpen(true)} className="btn-ghost w-9 h-9 p-0" aria-label="Open search">
+            <Link href="/search" className="btn-ghost w-9 h-9 p-0" aria-label="Open search">
               <Search size={18} />
-            </button>
+            </Link>
           )}
         </div>
 
@@ -136,6 +147,7 @@ export default function TopbarClient() {
 
                   <DropdownLink href="/profile" icon={User} label="My Profile" onClick={() => setDropdownOpen(false)} />
                   <DropdownLink href="/profile?tab=posts" icon={FileText} label="My Posts" onClick={() => setDropdownOpen(false)} />
+                  <DropdownLink href="/drafts" icon={FileText} label="My Drafts" onClick={() => setDropdownOpen(false)} />
                   <DropdownLink href="/analytics" icon={BarChart2} label="Analytics" onClick={() => setDropdownOpen(false)} />
 
                   <hr className="border-border my-1" />
