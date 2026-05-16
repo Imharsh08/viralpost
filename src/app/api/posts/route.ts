@@ -55,12 +55,39 @@ export async function POST(request: NextRequest) {
       excerpt,
       tags: tags ?? [],
       is_ai_enhanced: !!is_ai_enhanced,
-      published_at: status === 'published' ? new Date().toISOString() : null,
     };
     if (typeof featured_image_url === 'string') payload.featured_image_url = featured_image_url;
 
     if (id) {
-      // Update an existing draft (auto-save or publish-from-draft)
+      // Update path: read existing row first so we can preserve published_at
+      // when re-saving a live post (don't change publish date on edits, and
+      // don't accidentally unpublish on autosave).
+      const { data: existing, error: readErr } = await supabase
+        .from('posts')
+        .select('published_at, user_id')
+        .eq('id', id)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (readErr) {
+        console.error('Read existing error:', readErr);
+        return Response.json({ error: readErr.message }, { status: 500 });
+      }
+      if (!existing) {
+        return Response.json({ error: 'Post not found' }, { status: 404 });
+      }
+
+      if (status === 'published') {
+        // Keep original publish timestamp on edits; first-time publish stamps now.
+        payload.published_at = existing.published_at ?? new Date().toISOString();
+      } else if (existing.published_at) {
+        // Editing a published post and client sent status='draft' (autosave on
+        // a live post). Keep it published — never silently unpublish.
+        payload.published_at = existing.published_at;
+      } else {
+        // Draft autosave on a draft.
+        payload.published_at = null;
+      }
+
       const { data: post, error: updateError } = await supabase
         .from('posts')
         .update(payload)
@@ -75,6 +102,9 @@ export async function POST(request: NextRequest) {
       }
       return Response.json({ id: post.id, status });
     }
+
+    // Insert path: brand-new post
+    payload.published_at = status === 'published' ? new Date().toISOString() : null;
 
     const { data: post, error: insertError } = await supabase
       .from('posts')

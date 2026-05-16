@@ -24,7 +24,9 @@ export default function WriteEditorClient() {
   const { session } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const draftIdFromUrl = searchParams.get('draft');
+  // ?post=ID loads any existing post (draft or published). ?draft=ID is
+  // the legacy alias from before published-edit was supported.
+  const editPostId = searchParams.get('post') ?? searchParams.get('draft');
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -33,34 +35,43 @@ export default function WriteEditorClient() {
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
   const [activeContent, setActiveContent] = useState<'original' | 'enhanced'>('original');
   const [coverImage, setCoverImage] = useState<string | null>(null);
-  const [draftId, setDraftId] = useState<string | null>(null);
+  // Existing post being edited. Holds the row id whether it's still a draft
+  // or already published. isPublished tracks the source state so we don't
+  // accidentally unpublish on autosave.
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [isPublished, setIsPublished] = useState(false);
   const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
-  // Load a draft if ?draft=ID is in the URL
+  // Load an existing post (draft OR published) if ?post=ID or ?draft=ID is set
   useEffect(() => {
-    if (!draftIdFromUrl || !session) return;
-    fetch(`/api/posts/${draftIdFromUrl}`, {
+    if (!editPostId || !session) return;
+    fetch(`/api/posts/${editPostId}`, {
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.post && !data.post.published_at) {
-          setDraftId(data.post.id);
-          setTitle(data.post.title ?? '');
-          setContent(data.post.content ?? '');
-          setSelectedHashtags(data.post.tags ?? []);
-          setCoverImage(data.post.featured_image_url ?? null);
-          toast.success('Draft loaded');
+        if (!data.post) {
+          toast.error('Post not found');
+          return;
         }
+        setEditingPostId(data.post.id);
+        setIsPublished(!!data.post.published_at);
+        setTitle(data.post.title ?? '');
+        setContent(data.post.content ?? '');
+        setSelectedHashtags(data.post.tags ?? []);
+        setCoverImage(data.post.featured_image_url ?? null);
+        toast.success(data.post.published_at ? 'Editing published post' : 'Draft loaded');
       })
-      .catch(() => toast.error('Could not load draft'));
-  }, [draftIdFromUrl, session]);
+      .catch(() => toast.error('Could not load post'));
+  }, [editPostId, session]);
 
-  // Auto-save drafts every 30s while editing (PRD §6.3)
-  const autosaveLatest = useRef({ title, content, selectedHashtags, coverImage, draftId, session });
+  // Auto-save every 30s while editing (PRD §6.3). For published posts we
+  // autosave with status='published' so the post stays live; for drafts
+  // we save as 'draft'.
+  const autosaveLatest = useRef({ title, content, selectedHashtags, coverImage, editingPostId, isPublished, session });
   useEffect(() => {
-    autosaveLatest.current = { title, content, selectedHashtags, coverImage, draftId, session };
+    autosaveLatest.current = { title, content, selectedHashtags, coverImage, editingPostId, isPublished, session };
   });
 
   useEffect(() => {
@@ -80,17 +91,17 @@ export default function WriteEditorClient() {
             Authorization: `Bearer ${cur.session.access_token}`,
           },
           body: JSON.stringify({
-            id: cur.draftId,
+            id: cur.editingPostId,
             title: cur.title,
             content: cur.content,
             tags: cur.selectedHashtags,
             featured_image_url: cur.coverImage,
-            status: 'draft',
+            status: cur.isPublished ? 'published' : 'draft',
           }),
         });
         if (!res.ok) throw new Error();
         const data = await res.json();
-        if (!cur.draftId && data.id) setDraftId(data.id);
+        if (!cur.editingPostId && data.id) setEditingPostId(data.id);
         setAutosaveState('saved');
         setLastSavedAt(new Date());
       } catch {
@@ -159,7 +170,7 @@ export default function WriteEditorClient() {
           'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          id: draftId,
+          id: editingPostId,
           title,
           content,
           ai_enhanced_text: aiResult?.enhanced_text,
@@ -182,11 +193,13 @@ export default function WriteEditorClient() {
       setSelectedHashtags([]);
       setActiveContent('original');
       setCoverImage(null);
-      setDraftId(null);
+      setEditingPostId(null);
+      setIsPublished(false);
       setMode('draft');
 
       if (status === 'published') {
-        toast.success('Post published! You earned +50 bonus points');
+        const msg = isPublished ? 'Post updated' : 'Post published! You earned +50 bonus points';
+        toast.success(msg);
         router.push('/');
       } else {
         toast.success('Draft saved successfully');
@@ -213,9 +226,13 @@ export default function WriteEditorClient() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Write a Post</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isPublished ? 'Edit Published Post' : editingPostId ? 'Continue Draft' : 'Write a Post'}
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Draft your content, enhance with AI, and earn from every view
+            {isPublished
+              ? 'Changes go live as soon as you save'
+              : 'Draft your content, enhance with AI, and earn from every view'}
           </p>
         </div>
         <div className="flex items-center gap-3">

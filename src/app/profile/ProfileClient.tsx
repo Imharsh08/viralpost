@@ -597,7 +597,7 @@ function PostList({
             {/* Actions */}
             <div className="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
               <Link
-                href="/write-editor-page"
+                href={`/write-editor-page?post=${post.id}`}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
                 title="Edit post"
               >
