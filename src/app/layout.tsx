@@ -39,7 +39,21 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${plusJakartaSans.variable} ${jetbrainsMono.variable}`}>
       <head>
+        {/* AdSense site verification (machine-readable account claim) */}
         <meta name="google-adsense-account" content="ca-pub-6613650835809676" />
+
+        {/* AdSense loader — placed in <head> per Google's verification
+            requirements. strategy="beforeInteractive" injects the script
+            into <head> on the server-rendered HTML, which is what AdSense's
+            crawler looks for. Safe now that @dhiwise/component-tagger has
+            been removed from next.config.mjs. */}
+        <Script
+          id="adsbygoogle-loader"
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6613650835809676"
+          crossOrigin="anonymous"
+          strategy="beforeInteractive"
+        />
       </head>
       <body className={plusJakartaSans.className}>
         <AuthProvider>
@@ -57,18 +71,6 @@ export default function RootLayout({
               fontSize: '14px',
             },
           }}
-        />
-
-        {/* AdSense loader — strategy="afterInteractive" puts the script in <body>
-            (avoids the data-component-id warning Next.js injects on <head> scripts).
-            Slots queue their push() into window.adsbygoogle before this lands, then
-            AdSense drains the queue on load. */}
-        <Script
-          id="adsbygoogle-loader"
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6613650835809676"
-          crossOrigin="anonymous"
-          strategy="afterInteractive"
         />
       </body>
     </html>
