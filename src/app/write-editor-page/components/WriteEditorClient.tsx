@@ -318,6 +318,8 @@ export default function WriteEditorClient() {
             charCount={charCount}
             maxChars={maxChars}
             mode={mode}
+            content={mode === 'ai-result' && aiResult ? aiResult.enhanced_text : content}
+            hashtagCount={selectedHashtags.length}
           />
         </aside>
       </div>

@@ -1,43 +1,15 @@
 import React from 'react';
-import { Zap, TrendingUp, Lightbulb, Target, BarChart2, Award } from 'lucide-react';
+import { Zap, Award } from 'lucide-react';
 import type { EditorMode } from './WriteEditorClient';
+import ViralityMeter from './ViralityMeter';
 
 interface EditorSidebarProps {
   charCount: number;
   maxChars: number;
   mode: EditorMode;
+  content: string;
+  hashtagCount: number;
 }
-
-const viralityTips = [
-  {
-    id: 'tip-hook',
-    icon: Target,
-    title: 'Lead with a hook',
-    desc: 'First 2 lines determine if readers stop scrolling. Start with a bold claim, stat, or question.',
-    color: 'text-primary bg-secondary',
-  },
-  {
-    id: 'tip-paragraphs',
-    icon: BarChart2,
-    title: 'Short paragraphs win',
-    desc: 'Max 2–3 sentences per paragraph. White space increases read-through rate by 58%.',
-    color: 'text-amber-700 bg-amber-50',
-  },
-  {
-    id: 'tip-cta',
-    icon: TrendingUp,
-    title: 'End with a question',
-    desc: 'Posts ending with a question get 3x more comments — comments boost algorithmic reach.',
-    color: 'text-positive bg-positive-bg',
-  },
-  {
-    id: 'tip-bullets',
-    icon: Lightbulb,
-    title: 'Use bullet points',
-    desc: 'Lists are 40% more likely to be shared. Break complex ideas into scannable bullets.',
-    color: 'text-pink-700 bg-pink-50',
-  },
-];
 
 const pointsPreview = [
   { id: 'pts-first', event: 'First post bonus', pts: '+50', note: 'One-time' },
@@ -46,7 +18,7 @@ const pointsPreview = [
   { id: 'pts-milestone', event: '1k views milestone', pts: '+100', note: 'Per post' },
 ];
 
-export default function EditorSidebar({ charCount, maxChars, mode }: EditorSidebarProps) {
+export default function EditorSidebar({ charCount, maxChars, mode, content, hashtagCount }: EditorSidebarProps) {
   const progressPct = Math.min((charCount / maxChars) * 100, 100);
 
   return (
@@ -124,25 +96,8 @@ export default function EditorSidebar({ charCount, maxChars, mode }: EditorSideb
         </div>
       </div>
 
-      {/* Virality tips */}
-      <div className="card p-4">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-          Virality Playbook
-        </h3>
-        <div className="flex flex-col gap-3">
-          {viralityTips.map((tip) => (
-            <div key={tip.id} className="flex items-start gap-2.5">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${tip.color}`}>
-                <tip.icon size={13} />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-foreground leading-tight">{tip.title}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed mt-0.5">{tip.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* Live virality score */}
+      <ViralityMeter text={content} hashtagCount={hashtagCount} />
 
       {/* AIDA framework reference */}
       <div className="card p-4 bg-violet-50/50 border-purple-100">

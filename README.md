@@ -1,80 +1,84 @@
 # ViralPost
 
-## Project Name & Objective
+Write once. Go viral. Earn real rewards.
+
 ViralPost is a content publishing and creator-rewards platform. Creators
-write posts, get AI enhancement (the "Make it Viral" rewrite), publish to a
-live feed, and earn redeemable points from likes, followers, view
-milestones, and ad impressions. Built on Next.js 15 (App Router) deployed
-to Cloudflare Pages, with Supabase for auth, Postgres, RLS, Storage, and
-Realtime.
+write posts, get AI-powered enhancement (the "Make it Viral" rewrite),
+publish to a live feed, and earn redeemable points from likes, followers,
+view milestones, and verified ad impressions.
 
 Live: https://viralposts.pages.dev
 
-## Current Status
-- Progress: [==================               ] 58%
-- Update: 2026-05-17
+---
 
-## Recent Changes
-* Added /leaderboard page with Top Earners, Most Viral, Most Engaging boards.
-* Added migration 009 with get_top_earners, get_most_viral_posts,
-  get_most_engaging RPCs (SECURITY DEFINER, week + all-time windows).
-* Added /api/leaderboard edge endpoint dispatching by board + window.
-* Added Leaderboard to top-nav between Write and Rewards.
-* Restructured README to ASCII-only roadmap format.
+## Features
 
-## Roadmap
+- **AI post enhancement** — Claude rewrites your draft using an
+  audience-aware viral framework based on your chosen niches.
+- **Live virality score** — real-time 0-100 score on the editor with
+  per-criterion tips (hook strength, readability, paragraphs, ending
+  question, bullet usage, hashtag count).
+- **Points engine** — every like, follower, and view milestone credits
+  points to the author. 500 pts/day safety cap.
+- **Rewards catalog** — redeem points for gift cards, vouchers, gadgets,
+  and curated hampers.
+- **Realtime feed** — like, comment, and view counts update live across
+  browsers without reload.
+- **Follow system** — creator-style one-way follow, Following feed,
+  follower notifications.
+- **Public creator profiles** at /u/[username] with niches, headline,
+  bio, posts grid, and follower count.
+- **Hashtag pages** at /tag/[name] with Trending and Recent tabs.
+- **Search** across posts, creators, and hashtags.
+- **Leaderboard** — Top Earners (weekly + all-time), Most Viral posts,
+  Most Engaging creators.
+- **Notifications** — bell with realtime panel; auto-fires on every
+  like, comment, and new follower.
+- **Onboarding** — 3-step flow with niche selection, profile setup,
+  and +25 points completeness bonus.
+- **Draft auto-save** every 30s plus a Drafts manager.
+- **Cover image upload** to Supabase Storage (max 5MB).
+- **Google AdSense** in-feed fluid units between posts.
 
-### Wave 0 - P0 Fixes
-- [x] Fix Rewards 404 (catalog + redemption + balance card)
-- [x] Build post detail page /post/[id]
-- [x] Build hashtag page /tag/[name]
-- [x] Notifications system (DB triggers + bell + realtime panel)
+---
 
-### Wave 1 - Core V1
-- [x] Public creator profile /u/[username]
-- [x] Follow / Unfollow system + Following feed
-- [x] Realtime like/comment/view counts (Supabase Realtime)
-- [x] Live Points Engine (ledger + DB triggers + daily cap)
-- [x] Onboarding flow (niche pick + profile setup + +25 bonus)
-- [x] Analytics wired to live points + breakdown + recent activity
-- [x] Working search /search (posts, creators, tags)
-- [x] Draft auto-save + draft manager + cover image upload
-- [x] Profile editing (headline, niche tags, username, bio)
-- [x] Leaderboard (top earners, most viral, most engaging)
-- [ ] Virality score meter on editor (0-100 + improvement tips)
-- [ ] Comment replies (1-level nesting) + comment likes
-- [ ] Suggested creators sidebar (by niche overlap)
-- [ ] Follow a hashtag (tagged posts in Following feed)
+## Stack
 
-### Wave 2 - Growth
-- [ ] @mentions in posts and comments
-- [ ] Direct messages (1:1 text, share-to-DM)
-- [ ] Trending tags hourly recompute job
-- [ ] Weekly digest email ("Your posts earned X pts this week")
+- Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS
+- Supabase: Postgres, Auth (Google OAuth + Email/Password), RLS,
+  Storage, Realtime
+- Anthropic Claude (claude-haiku-4-5) for the "Make it Viral" rewrite
+- Google AdSense (in-feed fluid)
+- Cloudflare Pages via @cloudflare/next-on-pages
 
-### Wave 3 - Monetisation
-- [ ] Premium plan + paywall logic
-- [ ] Direct brand ads (sponsored feed cards)
-- [ ] Creator payouts (Razorpay or similar)
+---
 
-### Wave 4 - Scale
-- [ ] Mobile app (React Native)
-- [ ] Brand pages
-- [ ] Creator marketplace / API
+## Local development
 
-## Notes
+```
+npm install
+npm run dev          # http://localhost:4028
+npm run build        # production build
+npm run lint         # ESLint
+npm run format       # Prettier
+```
 
-### Stack
-- Next.js 15 App Router, React 19, TypeScript, Tailwind CSS.
-- Supabase: Postgres, Auth (Google OAuth + Email/Password), RLS, Storage,
-  Realtime.
-- Cloudflare Pages via @cloudflare/next-on-pages. Every dynamic route
-  must export `runtime = 'edge'`. Pages using `useSearchParams()` must
-  also set `dynamic = 'force-dynamic'` to skip prerender.
-- Anthropic Claude (claude-haiku-4-5) for "Make it Viral" rewrite.
-- Google AdSense (in-feed fluid units, slot 1915047628).
+Required environment variables in `.env.local`:
 
-### Required Supabase Migrations (run in order)
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+ANTHROPIC_API_KEY=...            # optional - falls back to mock enhancement
+```
+
+---
+
+## Database setup
+
+Run the SQL migrations in `supabase/migrations/` in order via the
+Supabase SQL Editor:
+
+```
 001_initial_schema.sql            - tables, RLS, count triggers
 002_add_points_balance.sql        - points_balance column on users
 003_add_increment_views_function  - view counter RPC
@@ -84,38 +88,96 @@ Live: https://viralposts.pages.dev
 007_user_onboarding.sql           - niche_tags, headline, onboarded_at
 008_storage_post_images.sql       - post-images bucket + RLS
 009_leaderboard_rpcs.sql          - top_earners, most_viral, most_engaging
-
-### Architectural Conventions
-- JWT-decode via atob() to extract user_id without supabase.auth.getUser()
-  network call. All edge routes use this pattern, not getSession().
-- Module-level singleton Realtime channel for PostCards (one channel for
-  N visible posts via id=in.(...) filter) to stay under the 200-channel
-  Supabase free-tier limit.
-- Optimistic UI with rollback for likes and follows; mutating ref guard
-  prevents Realtime from overwriting in-flight optimistic state.
-- MOCK_IDS Set on PostCard skips real API calls for seed/mock posts so
-  FollowButton, view counters, and Realtime stay no-ops on demo data.
-- AdSense script loaded via next/script strategy="afterInteractive" in
-  body, NOT in head, to avoid Next.js injecting data-component-id.
-
-### Known Constraints
-- Free-tier Cloudflare Pages build is ~2-3 minutes (npm install + next
-  build + edge build); not optimizable in app code.
-- Supabase Realtime free tier caps at 200 concurrent channels;
-  the singleton channel pattern is what makes this work at scale.
-- Daily points cap is 500 pts/user/day enforced in credit_points().
-- Username regex: ^[a-z0-9_]{3,30}$ (lowercase, no spaces).
-- Cover images: max 5MB, JPEG/PNG/WEBP/GIF only, stored at
-  post-images/{user_id}/{timestamp}.{ext}.
-
-### Local Development
-```
-npm install
-npm run dev          # http://localhost:4028
-npm run build        # production build
 ```
 
-Environment variables required in .env.local:
-- NEXT_PUBLIC_SUPABASE_URL
-- NEXT_PUBLIC_SUPABASE_ANON_KEY
-- ANTHROPIC_API_KEY      (optional - falls back to mock enhancement)
+---
+
+## Project structure
+
+```
+viralpost/
+  public/                       Static assets, ads.txt, favicon
+  src/
+    app/                        Next.js App Router pages and API routes
+      api/                      Edge runtime API routes
+      analytics/                /analytics — creator dashboard
+      auth/callback/            OAuth callback
+      drafts/                   /drafts — your saved drafts
+      leaderboard/              /leaderboard — three boards
+      onboarding/               /onboarding — first-run flow
+      post/[id]/                /post/[id] — public post detail
+      profile/                  /profile — own profile + edit
+      rewards/                  /rewards — catalog + redemption
+      search/                   /search — posts + creators + tags
+      sign-up-login-screen/     Auth screens
+      tag/[name]/               /tag/[name] — hashtag discovery
+      u/[username]/             /u/[username] — public creator profile
+      write-editor-page/        /write-editor-page — AI editor
+      components/               Feed, PostCard, FollowButton, etc.
+      layout.tsx                Root layout (AdSense + Toaster)
+      page.tsx                  / — Home feed
+    components/                 AppLayout, Topbar, NotificationBell
+    contexts/                   AuthContext (session state)
+    lib/
+      hooks/                    usePostRealtime, useUserRealtime
+      mockData.ts               Seed posts and creators for empty DB
+      supabase/client.ts        Singleton browser client
+    styles/tailwind.css         Tailwind v4 entry + custom utilities
+  supabase/migrations/          SQL migrations (run in order)
+  next.config.mjs               Edge build config
+  wrangler.toml                 Cloudflare Pages config
+```
+
+---
+
+## Conventions
+
+- **Edge runtime** — every dynamic route exports
+  `export const runtime = 'edge'`. Pages using `useSearchParams()` also
+  set `export const dynamic = 'force-dynamic'` to skip static prerender.
+- **Auth pattern** — API routes JWT-decode the `Authorization` header
+  via `atob()` to extract the user ID without a network call.
+  `supabase.auth.getSession()` is only used in browser-side React.
+- **Realtime singleton** — all visible PostCards share one Supabase
+  channel via an `id=in.(...)` filter; debounced 50ms rebuild on mount
+  to stay under the 200-channel free-tier cap.
+- **Optimistic UI with rollback** — likes and follows update local
+  state first, then reconcile with the server; a `mutating` ref guard
+  stops Realtime events from overwriting in-flight optimistic state.
+- **Mock data isolation** — a `MOCK_IDS` Set on PostCard skips real
+  API calls for seed posts so Follow/Like/Realtime stay no-ops on
+  demo data.
+- **Defensive number formatting** — RPC numeric fields can come back
+  null or string; use the `fmt()` helper, not raw `.toLocaleString()`.
+- **AdSense** — script loaded via `next/script` with
+  `strategy="afterInteractive"` in `<body>`, never in `<head>`.
+  Never re-add `@dhiwise/component-tagger` or `static.rocket.new`
+  scripts; they strip and hook adsbygoogle.js loading.
+
+---
+
+## Available scripts
+
+```
+npm run dev      Start dev server on port 4028
+npm run build    Build for production
+npm run start    Start production server
+npm run serve    Alias for production server
+npm run lint     Run ESLint
+npm run format   Format with Prettier
+```
+
+---
+
+## Deployment
+
+The app is deployed to Cloudflare Pages. Builds run on push to `main`
+via `npx @cloudflare/next-on-pages@1`. Every dynamic route must
+declare edge runtime or the build fails.
+
+---
+
+## Acknowledgments
+
+Built by Harsh Kashyap. Powered by Next.js, Supabase, Anthropic Claude,
+and Cloudflare Pages.
