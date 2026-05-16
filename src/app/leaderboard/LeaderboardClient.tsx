@@ -12,39 +12,48 @@ type Window = 'week' | 'all';
 
 interface EarnerRow {
   user_id: string;
-  username: string;
-  display_name: string;
+  username: string | null;
+  display_name: string | null;
   avatar_url: string | null;
-  is_verified: boolean;
-  follower_count: number;
-  points_earned: number;
+  is_verified: boolean | null;
+  follower_count: number | null;
+  points_earned: number | null;
 }
 
 interface ViralRow {
   post_id: string;
-  title: string;
-  excerpt: string;
-  views_count: number;
-  likes_count: number;
-  comments_count: number;
+  title: string | null;
+  excerpt: string | null;
+  views_count: number | null;
+  likes_count: number | null;
+  comments_count: number | null;
   published_at: string;
   author_id: string;
-  author_username: string;
-  author_display_name: string;
+  author_username: string | null;
+  author_display_name: string | null;
   author_avatar_url: string | null;
-  author_is_verified: boolean;
+  author_is_verified: boolean | null;
 }
 
 interface EngagingRow {
   user_id: string;
-  username: string;
-  display_name: string;
+  username: string | null;
+  display_name: string | null;
   avatar_url: string | null;
-  is_verified: boolean;
-  follower_count: number;
-  total_views: number;
-  total_engagement: number;
-  engagement_rate: number;
+  is_verified: boolean | null;
+  follower_count: number | null;
+  total_views: number | null;
+  total_engagement: number | null;
+  engagement_rate: number | string | null;
+}
+
+// Defensive number formatter — Supabase RPCs can return null or string for
+// some numeric/bigint columns, and uninitialized counter columns can be null
+// on legacy rows. Coerce to number safely.
+function fmt(v: number | string | null | undefined): string {
+  const n = typeof v === 'number' ? v : v == null ? 0 : Number(v);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString();
 }
 
 const BOARDS: { id: Board; label: string; icon: any; supportsWindow: boolean }[] = [
@@ -229,25 +238,25 @@ function EarnersList({ rows }: { rows: EarnerRow[] }) {
       {rows.map((row, idx) => (
         <Link
           key={row.user_id}
-          href={`/u/${row.username}`}
+          href={`/u/${row.username ?? ''}`}
           className="card p-3 hover:shadow-md transition-shadow flex items-center gap-3"
         >
           <RankBadge rank={idx + 1} />
-          <Avatar url={row.avatar_url} name={row.display_name} />
+          <Avatar url={row.avatar_url} name={row.display_name ?? ''} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-bold text-foreground truncate">{row.display_name}</span>
+              <span className="text-sm font-bold text-foreground truncate">{row.display_name ?? 'Unknown'}</span>
               {row.is_verified && <BadgeCheck size={13} className="text-primary fill-primary/20 shrink-0" />}
             </div>
             <p className="text-xs text-muted-foreground truncate">
-              @{row.username} · {row.follower_count.toLocaleString()} followers
+              @{row.username ?? '—'} · {fmt(row.follower_count)} followers
             </p>
           </div>
           <div className="text-right shrink-0">
             <div className="flex items-center gap-1 text-amber-600">
               <Zap size={13} className="fill-amber-500 text-amber-500" />
               <span className="text-base font-bold font-mono tabular-nums">
-                {row.points_earned.toLocaleString()}
+                {fmt(row.points_earned)}
               </span>
             </div>
             <p className="text-xs text-muted-foreground">pts</p>
@@ -273,23 +282,23 @@ function ViralList({ rows }: { rows: ViralRow[] }) {
               )}
               <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{row.excerpt}</p>
             </Link>
-            <Link href={`/u/${row.author_username}`} className="flex items-center gap-1.5 mt-2 hover:text-primary transition-colors w-fit">
-              <Avatar url={row.author_avatar_url} name={row.author_display_name} />
-              <span className="text-xs font-semibold text-foreground">{row.author_display_name}</span>
+            <Link href={`/u/${row.author_username ?? ''}`} className="flex items-center gap-1.5 mt-2 hover:text-primary transition-colors w-fit">
+              <Avatar url={row.author_avatar_url} name={row.author_display_name ?? ''} />
+              <span className="text-xs font-semibold text-foreground">{row.author_display_name ?? 'Unknown'}</span>
               {row.author_is_verified && <BadgeCheck size={11} className="text-primary fill-primary/20" />}
             </Link>
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Eye size={11} />
-                <span className="font-mono tabular-nums">{row.views_count.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{fmt(row.views_count)}</span>
               </span>
               <span className="flex items-center gap-1">
                 <Heart size={11} />
-                <span className="font-mono tabular-nums">{row.likes_count.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{fmt(row.likes_count)}</span>
               </span>
               <span className="flex items-center gap-1">
                 <MessageCircle size={11} />
-                <span className="font-mono tabular-nums">{row.comments_count.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{fmt(row.comments_count)}</span>
               </span>
             </div>
           </div>
@@ -305,23 +314,23 @@ function EngagingList({ rows }: { rows: EngagingRow[] }) {
       {rows.map((row, idx) => (
         <Link
           key={row.user_id}
-          href={`/u/${row.username}`}
+          href={`/u/${row.username ?? ''}`}
           className="card p-3 hover:shadow-md transition-shadow flex items-center gap-3"
         >
           <RankBadge rank={idx + 1} />
-          <Avatar url={row.avatar_url} name={row.display_name} />
+          <Avatar url={row.avatar_url} name={row.display_name ?? ''} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-bold text-foreground truncate">{row.display_name}</span>
+              <span className="text-sm font-bold text-foreground truncate">{row.display_name ?? 'Unknown'}</span>
               {row.is_verified && <BadgeCheck size={13} className="text-primary fill-primary/20 shrink-0" />}
             </div>
             <p className="text-xs text-muted-foreground truncate">
-              @{row.username} · {row.total_views.toLocaleString()} views · {row.total_engagement.toLocaleString()} engagements
+              @{row.username ?? '—'} · {fmt(row.total_views)} views · {fmt(row.total_engagement)} engagements
             </p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-base font-bold text-emerald-600 font-mono tabular-nums">
-              {Number(row.engagement_rate).toFixed(1)}%
+              {Number(row.engagement_rate ?? 0).toFixed(1)}%
             </p>
             <p className="text-xs text-muted-foreground">engagement</p>
           </div>
