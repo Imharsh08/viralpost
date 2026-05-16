@@ -15,7 +15,7 @@ export async function GET(_request: NextRequest, { params }: { params: { usernam
 
   const { data: profile, error } = await supabase
     .from('users')
-    .select('id, username, display_name, avatar_url, bio, is_verified, follower_count, following_count, created_at')
+    .select('id, username, display_name, avatar_url, bio, headline, niche_tags, is_verified, follower_count, following_count, created_at')
     .eq('username', username)
     .maybeSingle();
 

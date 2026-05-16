@@ -53,7 +53,13 @@ export default function ProfileClient() {
   const [postsLoading, setPostsLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ display_name: '', bio: '' });
+  const [editForm, setEditForm] = useState({
+    display_name: '',
+    username: '',
+    headline: '',
+    bio: '',
+    niche_tags: [] as string[],
+  });
   const [followerCount, setFollowerCount] = useState(0);
 
   const authHeader = session ? `Bearer ${session.access_token}` : '';
@@ -74,7 +80,13 @@ export default function ProfileClient() {
         setProfile(profile);
         setStats(stats);
         setFollowerCount(profile?.follower_count ?? 0);
-        setEditForm({ display_name: profile?.display_name ?? '', bio: profile?.bio ?? '' });
+        setEditForm({
+          display_name: profile?.display_name ?? '',
+          username: profile?.username ?? '',
+          headline: profile?.headline ?? '',
+          bio: profile?.bio ?? '',
+          niche_tags: profile?.niche_tags ?? [],
+        });
       })
       .catch(() => toast.error('Failed to load profile'))
       .finally(() => setLoading(false));
@@ -177,74 +189,58 @@ export default function ProfileClient() {
 
             {/* Name / username / bio */}
             <div>
-              {editMode ? (
-                <div className="flex flex-col gap-2">
-                  <input
-                    value={editForm.display_name}
-                    onChange={(e) => setEditForm((f) => ({ ...f, display_name: e.target.value }))}
-                    placeholder="Display name"
-                    className="input-field text-lg font-bold py-1.5 h-auto w-64"
-                    maxLength={50}
-                  />
-                  <textarea
-                    value={editForm.bio}
-                    onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
-                    placeholder="Tell people about yourself..."
-                    className="input-field text-sm py-1.5 h-auto resize-none w-64"
-                    rows={2}
-                    maxLength={200}
-                  />
+              <h1 className="text-xl font-extrabold text-foreground">{displayName}</h1>
+              {username && <p className="text-sm text-muted-foreground">@{username}</p>}
+              {profile?.headline && (
+                <p className="text-sm font-semibold text-primary mt-1 max-w-sm">{profile.headline}</p>
+              )}
+              {profile?.bio && (
+                <p className="text-sm text-foreground/80 mt-1 max-w-sm whitespace-pre-wrap">{profile.bio}</p>
+              )}
+              {profile?.niche_tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {profile.niche_tags.map((t: string) => (
+                    <Link
+                      key={t}
+                      href={`/tag/${encodeURIComponent(t)}`}
+                      className="text-xs font-semibold text-primary bg-secondary px-2 py-0.5 rounded-full hover:bg-primary/15 transition-colors"
+                    >
+                      #{t}
+                    </Link>
+                  ))}
                 </div>
-              ) : (
-                <>
-                  <h1 className="text-xl font-extrabold text-foreground">{displayName}</h1>
-                  {username && <p className="text-sm text-muted-foreground">@{username}</p>}
-                  {profile?.bio && (
-                    <p className="text-sm text-foreground/80 mt-1 max-w-sm">{profile.bio}</p>
-                  )}
-                  {joinedDate && (
-                    <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
-                      <Calendar size={11} />
-                      Joined {joinedDate}
-                    </div>
-                  )}
-                </>
+              )}
+              {joinedDate && (
+                <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground">
+                  <Calendar size={11} />
+                  Joined {joinedDate}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Edit / Save buttons */}
+          {/* Edit / actions */}
           <div className="flex items-center gap-2">
-            {editMode ? (
-              <>
-                <button onClick={() => setEditMode(false)} className="btn-ghost text-sm px-4 py-2">
-                  Cancel
-                </button>
-                <button onClick={handleSaveProfile} disabled={saving} className="btn-primary text-sm px-4 py-2">
-                  {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-                  Save
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setEditMode(true)} className="btn-ghost text-sm px-4 py-2">
-                  <Edit3 size={14} />
-                  Edit Profile
-                </button>
-                <Link href="/analytics" className="btn-secondary text-sm px-4 py-2">
-                  <BarChart2 size={14} />
-                  Analytics
-                </Link>
-                {user?.id !== profile?.id && profile?.id && (
-                  <FollowButton
-                    targetUserId={profile.id}
-                    targetDisplayName={profile.display_name}
-                    variant="primary"
-                    onFollowChange={(_, newCount) => setFollowerCount(newCount)}
-                  />
-                )}
-              </>
-            )}
+            <button
+              onClick={() => {
+                setEditForm({
+                  display_name: profile?.display_name ?? '',
+                  username: profile?.username ?? '',
+                  headline: profile?.headline ?? '',
+                  bio: profile?.bio ?? '',
+                  niche_tags: profile?.niche_tags ?? [],
+                });
+                setEditMode((m) => !m);
+              }}
+              className={editMode ? 'btn-secondary text-sm px-4 py-2' : 'btn-ghost text-sm px-4 py-2'}
+            >
+              <Edit3 size={14} />
+              {editMode ? 'Close editor' : 'Edit Profile'}
+            </button>
+            <Link href="/analytics" className="btn-secondary text-sm px-4 py-2">
+              <BarChart2 size={14} />
+              Analytics
+            </Link>
           </div>
         </div>
 
@@ -257,6 +253,17 @@ export default function ProfileClient() {
           <StatPill icon={Zap} label="Points Earned" value={stats?.totalPoints ?? 0} color="text-amber-500" />
         </div>
       </div>
+
+      {/* Edit panel */}
+      {editMode && (
+        <ProfileEditPanel
+          form={editForm}
+          setForm={setEditForm}
+          saving={saving}
+          onSave={handleSaveProfile}
+          onCancel={() => setEditMode(false)}
+        />
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-muted rounded-xl mb-5 w-fit">
@@ -312,7 +319,9 @@ export default function ProfileClient() {
           <AboutRow label="Display Name" value={profile?.display_name} />
           <AboutRow label="Username" value={username ? `@${username}` : undefined} />
           <AboutRow label="Email" value={profile?.email} />
+          <AboutRow label="Headline" value={profile?.headline} />
           <AboutRow label="Bio" value={profile?.bio} />
+          <AboutRow label="Niches" value={profile?.niche_tags?.length ? profile.niche_tags.map((t: string) => `#${t}`).join(' · ') : undefined} />
           <AboutRow label="Member Since" value={joinedDate} />
           <AboutRow label="Followers" value={profile?.follower_count?.toLocaleString()} />
           <AboutRow label="Following" value={profile?.following_count?.toLocaleString()} />
@@ -323,6 +332,162 @@ export default function ProfileClient() {
 }
 
 /* ── Sub-components ── */
+
+const NICHE_PRESETS = [
+  'Tech', 'Startup', 'Business', 'Career', 'Finance', 'Marketing',
+  'Design', 'AI', 'Productivity', 'Lifestyle', 'Writing', 'CreatorEconomy',
+];
+
+interface EditForm {
+  display_name: string;
+  username: string;
+  headline: string;
+  bio: string;
+  niche_tags: string[];
+}
+
+function ProfileEditPanel({
+  form, setForm, saving, onSave, onCancel,
+}: {
+  form: EditForm;
+  setForm: React.Dispatch<React.SetStateAction<EditForm>>;
+  saving: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const toggleNiche = (tag: string) => {
+    setForm((f) => {
+      if (f.niche_tags.includes(tag)) {
+        return { ...f, niche_tags: f.niche_tags.filter((t) => t !== tag) };
+      }
+      if (f.niche_tags.length >= 5) {
+        toast.error('Max 5 niches');
+        return f;
+      }
+      return { ...f, niche_tags: [...f.niche_tags, tag] };
+    });
+  };
+
+  return (
+    <div className="card p-5 mb-6 animate-slide-up">
+      <div className="flex items-center gap-2 mb-4">
+        <Edit3 size={15} className="text-primary" />
+        <h2 className="text-sm font-bold text-foreground">Edit Profile</h2>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+            Display name <span className="text-negative">*</span>
+          </label>
+          <input
+            type="text"
+            value={form.display_name}
+            onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
+            placeholder="Your name"
+            maxLength={80}
+            className="input-field w-full"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+            Username
+          </label>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-muted-foreground">@</span>
+            <input
+              type="text"
+              value={form.username}
+              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value.toLowerCase() }))}
+              placeholder="yourhandle"
+              maxLength={30}
+              className="input-field w-full"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">3–30 chars, letters/numbers/underscore</p>
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+          Headline
+        </label>
+        <input
+          type="text"
+          value={form.headline}
+          onChange={(e) => setForm((f) => ({ ...f, headline: e.target.value }))}
+          placeholder="e.g. Building in public · ex-stripe · writing about growth"
+          maxLength={160}
+          className="input-field w-full"
+        />
+        <p className="text-xs text-muted-foreground mt-1">{form.headline.length}/160</p>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+          Bio
+        </label>
+        <textarea
+          value={form.bio}
+          onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
+          placeholder="Tell readers a bit about you…"
+          rows={3}
+          maxLength={500}
+          className="input-field w-full resize-none"
+        />
+        <p className="text-xs text-muted-foreground mt-1">{form.bio.length}/500</p>
+      </div>
+
+      <div className="mb-5">
+        <label className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+          Niches <span className="text-muted-foreground font-normal normal-case">— pick up to 5 ({form.niche_tags.length}/5)</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {NICHE_PRESETS.map((tag) => {
+            const selected = form.niche_tags.includes(tag);
+            return (
+              <button
+                key={tag}
+                onClick={() => toggleNiche(tag)}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-all duration-150 active:scale-95 ${
+                  selected
+                    ? 'bg-secondary border-primary/40 text-primary'
+                    : 'bg-card border-border text-muted-foreground hover:border-primary/30 hover:text-primary'
+                }`}
+              >
+                {selected ? <CheckCircle2 size={11} className="inline -mt-0.5 mr-1" /> : null}
+                #{tag}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+        <button onClick={onCancel} className="btn-ghost text-sm px-4 py-2">
+          Cancel
+        </button>
+        <button
+          onClick={onSave}
+          disabled={saving || !form.display_name.trim()}
+          className="btn-primary text-sm px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Saving…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 size={14} />
+              Save changes
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function StatPill({ icon: Icon, label, value, color }: { icon: any; label: string; value: number; color: string }) {
   return (

@@ -17,6 +17,8 @@ interface Profile {
   display_name: string;
   avatar_url: string | null;
   bio: string | null;
+  headline: string | null;
+  niche_tags: string[] | null;
   is_verified: boolean;
   follower_count: number;
   following_count: number;
@@ -162,10 +164,28 @@ export default function UserProfileClient({ username }: { username: string }) {
             </div>
             <p className="text-sm text-muted-foreground">@{profile.username}</p>
 
+            {profile.headline && (
+              <p className="text-sm font-semibold text-primary mt-2">{profile.headline}</p>
+            )}
+
             {profile.bio && (
               <p className="text-sm text-foreground/90 mt-3 leading-relaxed whitespace-pre-wrap">
                 {profile.bio}
               </p>
+            )}
+
+            {profile.niche_tags && profile.niche_tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {profile.niche_tags.map((t) => (
+                  <Link
+                    key={t}
+                    href={`/tag/${encodeURIComponent(t)}`}
+                    className="text-xs font-semibold text-primary bg-secondary px-2.5 py-1 rounded-full hover:bg-primary/15 transition-colors"
+                  >
+                    #{t}
+                  </Link>
+                ))}
+              </div>
             )}
 
             <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">

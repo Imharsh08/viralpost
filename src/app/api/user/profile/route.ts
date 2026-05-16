@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   const [profileRes, statsRes] = await Promise.all([
     supabase
       .from('users')
-      .select('id, username, display_name, avatar_url, bio, is_verified, email, follower_count, following_count, points_balance, created_at')
+      .select('id, username, display_name, avatar_url, bio, headline, niche_tags, is_verified, email, follower_count, following_count, points_balance, created_at')
       .eq('id', userId)
       .single(),
     supabase
@@ -64,13 +64,39 @@ export async function PATCH(request: NextRequest) {
 
   const supabase = makeClient(supabaseUrl, supabaseAnonKey, authHeader);
   const body = await request.json();
-  const allowed = ['display_name', 'username', 'bio', 'avatar_url'];
+
   const updates: Record<string, any> = {};
-  for (const key of allowed) {
-    if (body[key] !== undefined) updates[key] = body[key];
+
+  if (typeof body.display_name === 'string') {
+    const v = body.display_name.trim();
+    if (v.length < 1 || v.length > 80) {
+      return Response.json({ error: 'Display name must be 1–80 characters' }, { status: 400 });
+    }
+    updates.display_name = v;
+  }
+  if (typeof body.username === 'string') {
+    const v = body.username.trim().toLowerCase();
+    if (!/^[a-z0-9_]{3,30}$/.test(v)) {
+      return Response.json({ error: 'Username: 3–30 chars, letters/numbers/underscore only' }, { status: 400 });
+    }
+    updates.username = v;
+  }
+  if (typeof body.bio === 'string') updates.bio = body.bio.slice(0, 500);
+  if (typeof body.headline === 'string') updates.headline = body.headline.slice(0, 160);
+  if (typeof body.avatar_url === 'string') updates.avatar_url = body.avatar_url;
+  if (Array.isArray(body.niche_tags)) {
+    const clean = body.niche_tags
+      .filter((t: any) => typeof t === 'string' && t.trim())
+      .slice(0, 5);
+    updates.niche_tags = clean;
   }
 
   const { data, error } = await supabase.from('users').update(updates).eq('id', userId).select().single();
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    if (error.code === '23505') {
+      return Response.json({ error: 'That username is taken' }, { status: 409 });
+    }
+    return Response.json({ error: error.message }, { status: 500 });
+  }
   return Response.json({ profile: data });
 }
