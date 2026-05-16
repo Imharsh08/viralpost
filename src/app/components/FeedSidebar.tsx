@@ -33,8 +33,9 @@ export default function FeedSidebar() {
         </div>
         <div className="flex flex-col gap-2">
           {trendingTags?.map((tag, i) => (
-            <button
+            <Link
               key={`sidebar-tag-${tag?.name}`}
+              href={`/tag/${encodeURIComponent(tag?.name ?? '')}`}
               className="flex items-center justify-between py-1.5 hover:bg-muted rounded-lg px-1.5 transition-colors group"
             >
               <div className="flex items-center gap-2">
@@ -46,7 +47,7 @@ export default function FeedSidebar() {
               <span className="text-xs text-muted-foreground font-mono tabular-nums">
                 {tag?.postCount?.toLocaleString()} posts
               </span>
-            </button>
+            </Link>
           ))}
         </div>
       </div>

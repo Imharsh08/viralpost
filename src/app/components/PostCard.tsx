@@ -86,7 +86,7 @@ export default function PostCard({ post }: PostCardProps) {
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/posts/${post.id}`).catch(() => {});
+    navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`).catch(() => {});
     toast.success('Link copied!');
     setShowShareMenu(false);
   };
@@ -137,19 +137,30 @@ export default function PostCard({ post }: PostCardProps) {
       </div>
 
       {/* Content */}
-      <div className="mb-3">
-        {post.title && <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug">{post.title}</h2>}
+      <Link href={isMock ? '#' : `/post/${post.id}`} className="block mb-3 group/content">
+        {post.title && (
+          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug group-hover/content:text-primary transition-colors">
+            {post.title}
+          </h2>
+        )}
         <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">{post.excerpt}</p>
-      </div>
+      </Link>
 
       {/* Tags */}
       {post.tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mb-4">
-          {post.tags.map((tag) => (
-            <span key={`${post.id}-tag-${tag}`} className="badge-tag text-xs">
-              #{tag.replace(/^#+/, '')}
-            </span>
-          ))}
+          {post.tags.map((tag) => {
+            const clean = tag.replace(/^#+/, '');
+            return (
+              <Link
+                key={`${post.id}-tag-${tag}`}
+                href={`/tag/${encodeURIComponent(clean)}`}
+                className="badge-tag text-xs hover:bg-primary/15 transition-colors"
+              >
+                #{clean}
+              </Link>
+            );
+          })}
         </div>
       )}
 

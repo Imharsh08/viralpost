@@ -10,6 +10,26 @@ function getUserId(authHeader: string): string | null {
   } catch { return null; }
 }
 
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return Response.json({ is_liked: false });
+
+  const authHeader = request.headers.get('Authorization') ?? '';
+  const userId = getUserId(authHeader);
+  if (!userId) return Response.json({ is_liked: false });
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const { data } = await supabase
+    .from('post_likes')
+    .select('id')
+    .eq('post_id', params.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return Response.json({ is_liked: !!data });
+}
+
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   return toggleLike(request, params.id, true);
 }
