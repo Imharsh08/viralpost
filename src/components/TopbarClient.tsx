@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Search, PenSquare, Zap, Menu, X, Home, LogIn, Award,
-  User, BarChart2, LogOut, ChevronDown, FileText, Settings
+  User, BarChart2, LogOut, ChevronDown, FileText, Settings, Trophy
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
@@ -14,6 +14,7 @@ import NotificationBell from '@/components/NotificationBell';
 const navItems = [
   { label: 'Feed', href: '/', icon: Home },
   { label: 'Write', href: '/write-editor-page', icon: PenSquare },
+  { label: 'Leaderboard', href: '/leaderboard', icon: Trophy },
   { label: 'Rewards', href: '/rewards', icon: Award },
 ];
 
