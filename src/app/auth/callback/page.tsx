@@ -27,7 +27,19 @@ export default function AuthCallback() {
           router.push('/sign-up-login-screen');
           return;
         }
-        router.push('/');
+
+        // Send new users to onboarding; existing users to feed
+        const { data: profile } = await supabase
+          .from('users')
+          .select('onboarded_at')
+          .eq('id', data.session.user.id)
+          .maybeSingle();
+
+        if (!profile || !profile.onboarded_at) {
+          router.push('/onboarding');
+        } else {
+          router.push('/');
+        }
       } catch (error) {
         console.error('Auth callback error:', error);
         router.push('/sign-up-login-screen');

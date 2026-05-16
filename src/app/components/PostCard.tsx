@@ -96,7 +96,7 @@ export default function PostCard({ post }: PostCardProps) {
       {/* Author row */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="relative">
+          <Link href={isMock ? '#' : `/u/${post.author.username}`} className="relative shrink-0">
             <AppImage
               src={post.author.avatarUrl}
               alt={`${post.author.displayName} profile photo`}
@@ -108,10 +108,13 @@ export default function PostCard({ post }: PostCardProps) {
                 <Sparkles size={8} className="text-white" />
               </div>
             )}
-          </div>
+          </Link>
           <div>
             <div className="flex items-center gap-1.5 flex-wrap">
-              <Link href="#" className="text-sm font-bold text-foreground hover:text-primary transition-colors">
+              <Link
+                href={isMock ? '#' : `/u/${post.author.username}`}
+                className="text-sm font-bold text-foreground hover:text-primary transition-colors"
+              >
                 {post.author.displayName}
               </Link>
               {post.isTrending && <span className="badge-trending"><TrendingUp size={9} />Trending</span>}
