@@ -26,6 +26,7 @@ interface PostDetail {
   points_earned: number;
   is_trending: boolean;
   is_ai_enhanced: boolean;
+  featured_image_url: string | null;
   published_at: string;
   users: {
     id: string;
@@ -263,6 +264,19 @@ export default function PostDetailClient({ postId }: { postId: string }) {
             </h1>
           )}
         </div>
+
+        {/* Cover image */}
+        {post.featured_image_url && (
+          <div className="w-full max-h-[420px] overflow-hidden bg-muted">
+            <AppImage
+              src={post.featured_image_url}
+              alt={post.title || 'Post cover image'}
+              width={1200}
+              height={630}
+              className="w-full max-h-[420px] object-cover"
+            />
+          </div>
+        )}
 
         {/* Body */}
         <div className="p-5 sm:p-6">

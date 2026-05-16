@@ -38,6 +38,7 @@ function dbRpcPostToMockPost(p: any): MockPost {
     isLiked: false,
     isTrending: p.is_trending || false,
     isAiEnhanced: p.is_ai_enhanced || false,
+    coverImageUrl: p.featured_image_url ?? null,
   };
 }
 
@@ -64,6 +65,7 @@ function dbPostToMockPost(p: any): MockPost {
     isLiked: false,
     isTrending: p.is_trending || false,
     isAiEnhanced: p.is_ai_enhanced || false,
+    coverImageUrl: p.featured_image_url ?? null,
   };
 }
 

@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabase
     .from('posts')
-    .select('id, title, excerpt, content, tags, likes_count, comments_count, shares_count, views_count, points_earned, is_trending, is_ai_enhanced, published_at, created_at')
+    .select('id, title, excerpt, content, tags, featured_image_url, likes_count, comments_count, shares_count, views_count, points_earned, is_trending, is_ai_enhanced, published_at, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
 

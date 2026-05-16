@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, { params }: { params: { usernam
   const { data: posts } = await supabase
     .from('posts')
     .select(`
-      id, title, excerpt, content, tags, likes_count, comments_count,
+      id, title, excerpt, content, tags, featured_image_url, likes_count, comments_count,
       views_count, points_earned, is_trending, is_ai_enhanced, published_at
     `)
     .eq('user_id', profile.id)

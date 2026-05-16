@@ -20,6 +20,7 @@ export interface MockPost {
   isLiked: boolean;
   isTrending: boolean;
   isAiEnhanced: boolean;
+  coverImageUrl?: string | null;
 }
 
 export const mockPosts: MockPost[] = [

@@ -41,18 +41,54 @@ export default function CoverImageUpload({ value, onChange }: CoverImageUploadPr
 
     setUploading(true);
     try {
+      // Sanity check: confirm we have a live session. The session is read
+      // from localStorage by the singleton client; if it's stale or missing,
+      // the upload will 401 with a confusing "new row violates row-level
+      // security policy" error.
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast.error('Your session expired. Please sign in again.');
+        return;
+      }
+
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      // Path MUST start with the user's UUID — that's what the RLS policy
+      // in migration 008 checks via storage.foldername(name)[1].
       const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from('post-images').upload(path, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-      if (error) throw error;
+
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        // Translate common Supabase storage failures into actionable copy
+        const msg = uploadError.message.toLowerCase();
+        if (msg.includes('bucket') && msg.includes('not found')) {
+          throw new Error('Storage not configured yet. Ask the admin to run migration 008 in Supabase.');
+        }
+        if (msg.includes('row-level security') || msg.includes('not authorized') || msg.includes('unauthorized')) {
+          throw new Error('Upload blocked by permissions. Make sure you are signed in.');
+        }
+        if (msg.includes('payload too large') || msg.includes('exceeded')) {
+          throw new Error('That image is too large. Pick one under 5 MB.');
+        }
+        throw uploadError;
+      }
+
       const { data } = supabase.storage.from('post-images').getPublicUrl(path);
+      if (!data?.publicUrl) {
+        throw new Error('Upload succeeded but the public URL is missing. Check bucket visibility.');
+      }
       onChange(data.publicUrl);
       toast.success('Cover image uploaded');
     } catch (err: any) {
-      toast.error(err.message || 'Upload failed');
+      // Surface real error to the dev console as well as a toast
+      console.error('[CoverImageUpload] upload failed:', err);
+      toast.error(err?.message || 'Upload failed — see console for details');
     } finally {
       setUploading(false);
     }

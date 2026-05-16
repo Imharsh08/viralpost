@@ -139,6 +139,22 @@ export default function PostCard({ post }: PostCardProps) {
         </button>
       </div>
 
+      {/* Cover image */}
+      {post.coverImageUrl && (
+        <Link
+          href={isMock ? '#' : `/post/${post.id}`}
+          className="block mb-3 rounded-xl overflow-hidden border border-border"
+        >
+          <AppImage
+            src={post.coverImageUrl}
+            alt={post.title || 'Post cover image'}
+            width={1200}
+            height={630}
+            className="w-full max-h-72 object-cover"
+          />
+        </Link>
+      )}
+
       {/* Content */}
       <Link href={isMock ? '#' : `/post/${post.id}`} className="block mb-3 group/content">
         {post.title && (
