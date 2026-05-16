@@ -26,21 +26,16 @@ export async function POST(request: Request) {
           messages: [
             {
               role: 'user',
-              content: `Rewrite the post below into a viral version using this EXACT structure:
-
-LINE 1: A bold attention hook — a specific number, shocking stat, or challenge to common belief. One sentence only. No emoji.
-BLANK LINE
-LINE 3-4: 1-2 short sentences identifying the problem or tension the reader feels.
-BLANK LINE
-LINES 6-12: The core insight broken into 3-5 short punchy paragraphs (2 sentences max each). Use → bullet for key points if listing.
-BLANK LINE
-LAST LINE: One open-ended question to drive comments. Must start with "What" or "Have you" or "Which" or "How".
+              content: `Rewrite the post below to make it more engaging and shareable on social media.
 
 Rules:
-- Keep the author's original message and voice — do NOT invent facts
+- Preserve the author's original message, facts, and voice — do NOT invent content
+- Open with a compelling first line that hooks the reader (a bold claim, a surprising insight, or a relatable tension)
+- Keep paragraphs short (1-3 sentences each), with a blank line between them
+- End with one question that invites the reader to comment or share their perspective
 - Max 300 words total
 - No hashtags in the body text
-- Suggest exactly 5 relevant hashtags as separate array items (include the # symbol, CamelCase)
+- Suggest exactly 5 relevant hashtags (include the # symbol, CamelCase)
 
 Original post:
 """
