@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient, RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
 
 export interface PostCounts {
   likes_count: number;
@@ -18,20 +19,16 @@ const subscribedIds = new Set<string>();
 const listeners = new Map<string, Set<CountSetter>>();
 
 function rebuildChannel() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-
   if (channel) {
     channel.unsubscribe();
     channel = null;
   }
 
-  if (subscribedIds.size === 0 || !supabaseUrl || !supabaseAnonKey) return;
+  if (subscribedIds.size === 0) return;
 
   const idList = Array.from(subscribedIds).join(',');
-  const client = createClient(supabaseUrl, supabaseAnonKey);
 
-  channel = client
+  channel = supabase
     .channel('feed-posts-realtime')
     .on(
       'postgres_changes',

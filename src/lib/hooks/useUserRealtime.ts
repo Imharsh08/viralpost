@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase/client';
 
 export function useUserRealtime(
   userId: string | null,
@@ -17,12 +17,7 @@ export function useUserRealtime(
   useEffect(() => {
     if (!userId) return;
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-    if (!supabaseUrl || !supabaseAnonKey) return;
-
-    const client = createClient(supabaseUrl, supabaseAnonKey);
-    const ch = client
+    const ch = supabase
       .channel(`user-realtime-${userId}`)
       .on(
         'postgres_changes',
