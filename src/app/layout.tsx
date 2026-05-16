@@ -59,16 +59,18 @@ export default function RootLayout({
           }}
         />
 
-        {/* AdSense — strategy="afterInteractive" avoids Next.js injecting data-component-id */}
+        {/* AdSense loader — strategy="afterInteractive" puts the script in <body>
+            (avoids the data-component-id warning Next.js injects on <head> scripts).
+            Slots queue their push() into window.adsbygoogle before this lands, then
+            AdSense drains the queue on load. */}
         <Script
+          id="adsbygoogle-loader"
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6613650835809676"
           crossOrigin="anonymous"
           strategy="afterInteractive"
         />
-
-        <script type="module" async src="https://static.rocket.new/rocket-web.js?_cfg=https%3A%2F%2Fviralpost7072back.builtwithrocket.new&_be=https%3A%2F%2Fappanalytics.rocket.new&_v=0.1.18" />
-        <script type="module" defer src="https://static.rocket.new/rocket-shot.js?v=0.0.2" /></body>
+      </body>
     </html>
   );
 }

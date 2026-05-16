@@ -50,17 +50,65 @@ export default function PublishBar({
     }
   }, []);
 
+  // Why the actions are disabled — shown as native browser tooltips
+  const enhanceDisabledReason = !hasContent
+    ? 'Write something first'
+    : isTooShort
+    ? `Need ${50 - charCount} more character${50 - charCount === 1 ? '' : 's'}`
+    : isOverLimit
+    ? `Over the ${maxChars.toLocaleString()}-character limit`
+    : '';
+  const publishDisabledReason = !hasContent
+    ? 'Write something first'
+    : isOverLimit
+    ? `Over the ${maxChars.toLocaleString()}-character limit`
+    : '';
+
+  // Progress bar: counts the journey from 0 → 50 (unlock) → 2000 (max)
+  const progressPct = Math.min(100, (charCount / maxChars) * 100);
+  const progressColor = isOverLimit
+    ? 'bg-negative'
+    : charCount > 1600
+    ? 'bg-warning'
+    : charCount >= 50
+    ? 'bg-positive'
+    : 'bg-primary/50';
+
   return (
     <div className="sticky top-16 z-30 -mx-4 px-4 pt-2 pb-3 bg-background/85 backdrop-blur-md border-b border-border">
       <div className="card p-3 bg-gradient-to-r from-violet-50 via-purple-50 to-amber-50 border-purple-200 shadow-sm">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* Left: status + tags */}
           <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-            <span className={`text-xs font-mono tabular-nums font-bold ${
-              isOverLimit ? 'text-negative' : charCount > 1600 ? 'text-warning' : charCount >= 50 ? 'text-positive' : 'text-muted-foreground'
-            }`}>
+            <span
+              className={`text-xs font-mono tabular-nums font-bold ${
+                isOverLimit
+                  ? 'text-negative'
+                  : charCount > 1600
+                  ? 'text-warning'
+                  : charCount >= 50
+                  ? 'text-positive'
+                  : 'text-muted-foreground'
+              }`}
+              aria-label={`${charCount} of ${maxChars} characters used`}
+            >
               {charCount.toLocaleString()} / {maxChars.toLocaleString()}
             </span>
+
+            {/* Slim progress bar — visual companion to the char count */}
+            <div
+              className="h-1 w-20 sm:w-28 rounded-full bg-muted overflow-hidden shrink-0"
+              role="progressbar"
+              aria-valuenow={charCount}
+              aria-valuemin={0}
+              aria-valuemax={maxChars}
+            >
+              <div
+                className={`h-full transition-all duration-200 ${progressColor}`}
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+
             <span className="text-muted-foreground/40">·</span>
             {selectedHashtags.length > 0 ? (
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
@@ -74,7 +122,9 @@ export default function PublishBar({
             ) : (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Zap size={12} className="text-amber-500 fill-amber-300" />
-                <span className="hidden sm:inline">Earn points from every view</span>
+                <span className="hidden sm:inline">
+                  {hasContent ? 'Earn points from every view' : 'Start writing to earn points'}
+                </span>
               </div>
             )}
           </div>
@@ -106,6 +156,7 @@ export default function PublishBar({
                 <button
                   onClick={onEnhance}
                   disabled={!canEnhance || isEnhancing}
+                  title={enhanceDisabledReason || 'AI rewrite your post with a proven viral framework'}
                   className={`relative flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md ${
                     canEnhance
                       ? 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-amber-500 text-white hover:shadow-lg hover:scale-[1.02]'
@@ -136,14 +187,23 @@ export default function PublishBar({
             )}
 
             <div className="relative">
-              <div className="flex">
+              <div className={`flex rounded-xl shadow-md transition-all duration-200 ${
+                canPublish && !isPublishing
+                  ? enhanced
+                    ? 'shadow-primary/30 hover:shadow-lg hover:shadow-primary/40'
+                    : 'shadow-emerald-500/25 hover:shadow-lg hover:shadow-emerald-500/40'
+                  : ''
+              }`}>
                 <button
                   onClick={() => !isPublishing && canPublish && onPublish('published')}
                   disabled={!canPublish || isPublishing}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-l-xl text-sm font-bold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${
-                    enhanced
-                      ? 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-md'
-                      : 'bg-foreground/90 text-background hover:bg-foreground'
+                  title={publishDisabledReason || (enhanced ? 'Publish your enhanced post' : 'Publish to the feed')}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-l-xl text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:cursor-not-allowed ${
+                    !canPublish || isPublishing
+                      ? 'bg-muted text-muted-foreground'
+                      : enhanced
+                      ? 'bg-gradient-to-r from-primary to-fuchsia-600 text-primary-foreground hover:scale-[1.02]'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:scale-[1.02]'
                   }`}
                 >
                   {isPublishing ? (
@@ -153,7 +213,7 @@ export default function PublishBar({
                     </>
                   ) : (
                     <>
-                      <Send size={15} />
+                      <Send size={15} className={canPublish ? '' : ''} />
                       Publish
                     </>
                   )}
@@ -161,14 +221,18 @@ export default function PublishBar({
                 <button
                   onClick={() => setShowPublishMenu(!showPublishMenu)}
                   disabled={!canPublish || isPublishing}
-                  className={`flex items-center justify-center w-9 rounded-r-xl border-l border-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                    enhanced
-                      ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                      : 'bg-foreground/90 text-background hover:bg-foreground'
+                  title="More publish options"
+                  className={`flex items-center justify-center w-9 rounded-r-xl border-l transition-all duration-150 disabled:cursor-not-allowed active:scale-95 ${
+                    !canPublish || isPublishing
+                      ? 'bg-muted text-muted-foreground border-border'
+                      : enhanced
+                      ? 'bg-gradient-to-r from-primary to-fuchsia-600 text-primary-foreground border-white/25 hover:brightness-110'
+                      : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white border-white/25 hover:brightness-110'
                   }`}
                   aria-label="More publish options"
+                  aria-expanded={showPublishMenu}
                 >
-                  <ChevronDown size={14} />
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${showPublishMenu ? 'rotate-180' : ''}`} />
                 </button>
               </div>
 

@@ -1,17 +1,84 @@
+import { createClient } from '@supabase/supabase-js';
+
 export const runtime = 'edge';
+
+function getUserIdFromAuth(authHeader: string | null): string | null {
+  if (!authHeader) return null;
+  try {
+    const payload = JSON.parse(atob(authHeader.replace('Bearer ', '').split('.')[1]));
+    return payload.sub ?? null;
+  } catch { return null; }
+}
+
+// Look up the signed-in user's niche tags so the AI can match audience tone.
+// Returns [] for anonymous users or on any failure.
+async function getNicheTags(authHeader: string | null): Promise<string[]> {
+  const userId = getUserIdFromAuth(authHeader);
+  if (!userId) return [];
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return [];
+  try {
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const { data } = await supabase
+      .from('users')
+      .select('niche_tags')
+      .eq('id', userId)
+      .maybeSingle();
+    const tags = data?.niche_tags;
+    return Array.isArray(tags) ? tags.filter((t: any) => typeof t === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+// Maps niche tag → audience guidance (tone + platform conventions the
+// rewrite should respect). Falls back to a neutral profile if no match.
+const AUDIENCE_PROFILES: Record<string, string> = {
+  Tech: 'Technical readers on LinkedIn/X. They value specificity, real numbers, and tradeoffs over hype. Use concrete examples (stack names, metrics, error rates) when present in the source.',
+  Startup: 'Founders and operators on LinkedIn/X. They want pattern-recognition and honest failure stories, not generic advice. Open with a counterintuitive observation if the source supports one.',
+  Business: 'Business professionals on LinkedIn. Slightly more formal tone. Frame insights in terms of outcomes, decisions, or frameworks.',
+  Career: 'Job seekers and mid-career professionals on LinkedIn. Use a personal, story-driven hook. Lead with the lesson the reader gets.',
+  Finance: 'Finance-curious readers on LinkedIn/X. Be precise about numbers. Avoid hype, avoid investment advice phrasing.',
+  Marketing: 'Marketers on LinkedIn. They respond to specific channels, metrics, and counterintuitive takes. Lead with a result or a number when present.',
+  Design: 'Designers on LinkedIn/X. Value craft, taste, and visual language. Concise prose with strong opinions lands best.',
+  AI: 'AI builders and researchers on X/LinkedIn. Reference specific models, papers, or behaviors when the source mentions them. Avoid generic AI hype.',
+  Productivity: 'Knowledge workers. They want concrete, copy-able tactics — not motivation. Lead with a specific change the reader can make today.',
+  Lifestyle: 'General audience on LinkedIn/Instagram. Warmer, story-driven tone. The hook should be a relatable moment, not a stat.',
+  Writing: 'Writers and content creators. Meta-level craft observations land well. The post itself should model good writing.',
+  CreatorEconomy: 'Independent creators on LinkedIn/X. They want honest numbers (revenue, hours, conversion). Avoid platitudes.',
+};
+
+function audienceProfileFrom(tags: string[]): string {
+  const matched = tags
+    .map((t) => AUDIENCE_PROFILES[t])
+    .filter((s): s is string => !!s);
+  if (matched.length === 0) {
+    return 'General professional audience on LinkedIn-style platforms. Default to specificity over generality, and a warm but confident tone.';
+  }
+  // First two niches give the strongest signal; cap to avoid prompt drift.
+  return matched.slice(0, 2).join(' ');
+}
 
 export async function POST(request: Request) {
   try {
-    const { text } = await request.json();
+    const { text, title } = await request.json();
 
     if (!text || typeof text !== 'string' || text.trim().length < 10) {
       return Response.json({ error: 'Text is required' }, { status: 400 });
     }
 
+    const authHeader = request.headers.get('Authorization');
+    const nicheTags = await getNicheTags(authHeader);
+    const audienceProfile = audienceProfileFrom(nicheTags);
+    const nichesLabel = nicheTags.length > 0 ? nicheTags.join(', ') : 'general';
+    const titleLine = typeof title === 'string' && title.trim()
+      ? `Title (optional context, do not echo verbatim): "${title.trim()}"\n\n`
+      : '';
+
     const apiKey = process.env.ANTHROPIC_API_KEY;
 
     if (apiKey) {
-      // Real Claude enhancement
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -21,28 +88,36 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1200,
-          system: `You are a viral social media post writer. You ALWAYS output valid JSON and nothing else. No markdown, no explanation, no code fences — raw JSON only.`,
+          max_tokens: 1400,
+          system: `You are a viral social media post writer who tailors every rewrite to the author's specific audience. You ALWAYS output valid JSON and nothing else — no markdown, no explanation, no code fences. Raw JSON only.`,
           messages: [
             {
               role: 'user',
-              content: `Rewrite the post below to make it more engaging and shareable on social media.
+              content: `Rewrite the post below for the author's target audience.
 
-Rules:
-- Preserve the author's original message, facts, and voice — do NOT invent content
-- Open with a compelling first line that hooks the reader (a bold claim, a surprising insight, or a relatable tension)
-- Keep paragraphs short (1-3 sentences each), with a blank line between them
-- End with one question that invites the reader to comment or share their perspective
-- Max 300 words total
-- No hashtags in the body text
-- Suggest exactly 5 relevant hashtags (include the # symbol, CamelCase)
+AUDIENCE
+The author writes for: ${nichesLabel}.
+Audience profile: ${audienceProfile}
 
-Original post:
+GOAL
+Make this post more engaging and shareable for that audience — without changing what the author is actually saying.
+
+HARD RULES
+- Preserve the author's original message, facts, numbers, names, and voice. Do NOT invent details, statistics, anecdotes, or quotes.
+- If the source post is thin on specifics, the rewrite must stay thin too. Better short and true than padded and generic.
+- Match the audience tone described above. Don't sound like LinkedIn motivation if the audience is technical; don't sound like a research paper if the audience is lifestyle.
+- Open with a first line that earns the second — a bold claim, a surprising fact from the source, a specific number, or a relatable tension the audience feels. NOT a generic hook ("Here's the truth about X").
+- Short paragraphs (1–3 sentences). Blank line between them. Reading should feel light on mobile.
+- End with ONE question that invites a comment from this specific audience. The question must connect to the post's actual content.
+- Max 300 words. No hashtags inside the body.
+- Output exactly 5 hashtags as a separate array. Mix 2–3 niche-specific tags (drawn from "${nichesLabel}") with 2–3 broader engagement tags. CamelCase, include the # symbol.
+
+${titleLine}ORIGINAL POST
 """
 ${text.trim()}
 """
 
-Output ONLY this JSON, no other text:
+Output ONLY this JSON, nothing else:
 {"enhanced_text":"<full rewritten post here, use \\n for line breaks>","hashtags":["#Tag1","#Tag2","#Tag3","#Tag4","#Tag5"]}`,
             },
           ],
@@ -56,7 +131,6 @@ Output ONLY this JSON, no other text:
       const data = await response.json() as any;
       const content = data.content?.[0]?.text || '';
 
-      // Extract JSON from the response
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) throw new Error('Invalid AI response format');
 
@@ -64,12 +138,11 @@ Output ONLY this JSON, no other text:
       return Response.json(result);
     }
 
-    // Smart mock fallback (no API key) — incorporates the actual content
+    // Mock fallback (no API key) — uses niche tags to flavor hashtags
     const lines = text.trim().split('\n').filter((l: string) => l.trim());
     const firstLine = lines[0] || text.substring(0, 80);
     const keywords = extractKeywords(text);
-    const hashtags = generateHashtags(keywords);
-
+    const hashtags = generateHashtags(keywords, nicheTags);
     const enhanced = buildSmartMock(text, firstLine);
     return Response.json({ enhanced_text: enhanced, hashtags });
   } catch (error) {
@@ -88,10 +161,11 @@ function extractKeywords(text: string): string[] {
     .slice(0, 5);
 }
 
-function generateHashtags(keywords: string[]): string[] {
-  const base = ['#ContentStrategy', '#PersonalBranding', '#CreatorEconomy', '#Writing', '#ViralContent', '#Growth', '#LinkedIn', '#Mindset'];
+function generateHashtags(keywords: string[], nicheTags: string[]): string[] {
+  const niche = nicheTags.map((t) => `#${t}`);
   const keywordTags = keywords.map((k) => `#${k.charAt(0).toUpperCase() + k.slice(1)}`);
-  return [...new Set([...keywordTags, ...base])].slice(0, 5);
+  const fallback = ['#ContentStrategy', '#PersonalBranding', '#CreatorEconomy', '#Writing', '#ViralContent', '#Growth'];
+  return [...new Set([...niche, ...keywordTags, ...fallback])].slice(0, 5);
 }
 
 function buildSmartMock(original: string, hook: string): string {

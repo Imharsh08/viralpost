@@ -120,8 +120,13 @@ export default function WriteEditorClient() {
     try {
       const res = await fetch('/api/ai/enhance', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: content }),
+        headers: {
+          'Content-Type': 'application/json',
+          // Optional auth: lets the server look up the user's niche tags
+          // to tailor tone/hashtags. Anonymous users still work fine.
+          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ text: content, title }),
       });
 
       if (!res.ok) throw new Error('Enhancement request failed');
@@ -136,7 +141,7 @@ export default function WriteEditorClient() {
       setMode('draft');
       toast.error('Enhancement failed. Please try again.');
     }
-  }, [content, isTooShort, isOverLimit]);
+  }, [content, title, session, isTooShort, isOverLimit]);
 
   const handlePublish = async (status: 'published' | 'draft') => {
     if (!session) {
