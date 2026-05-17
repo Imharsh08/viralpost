@@ -141,13 +141,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
 
+    // Nested select on parent_post pulls in the original post embed for
+    // reshares (parent_post_id NOT NULL). The aliased fk reference name
+    // matches the column so PostgREST resolves it as a single object.
     let query = supabase
       .from('posts')
       .select(`
         id, title, excerpt, content, tags, featured_image_url, likes_count, comments_count,
         shares_count, views_count, points_earned, is_trending, is_ai_enhanced,
+        parent_post_id, reshares_count,
         published_at, created_at,
-        users!inner(id, username, display_name, avatar_url, is_verified)
+        users!inner(id, username, display_name, avatar_url, is_verified),
+        parent_post:parent_post_id (
+          id, title, excerpt, featured_image_url, published_at,
+          users (id, username, display_name, avatar_url, is_verified)
+        )
       `)
       .order('published_at', { ascending: false });
 

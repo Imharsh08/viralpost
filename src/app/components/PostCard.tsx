@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Heart, Share2, Zap, TrendingUp, Sparkles, MoreHorizontal, Bookmark, Eye } from 'lucide-react';
+import { Heart, Share2, Zap, TrendingUp, Sparkles, Bookmark, Eye } from 'lucide-react';
+import PostMenu from './PostMenu';
 import AppImage from '@/components/ui/AppImage';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -36,7 +37,6 @@ export default function PostCard({ post }: PostCardProps) {
   const [liked, setLiked] = useState(post.isLiked);
   const [commentCount, setCommentCount] = useState(post.comments);
   const [bookmarked, setBookmarked] = useState(false);
-  const [showShareMenu, setShowShareMenu] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const viewFired = useRef(false);
   const mutatingRef = useRef(false);
@@ -93,10 +93,34 @@ export default function PostCard({ post }: PostCardProps) {
     }
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/post/${post.id}`).catch(() => {});
-    toast.success('Link copied!');
-    setShowShareMenu(false);
+  // Native share with clipboard fallback. Opens the OS share sheet on
+  // mobile (WhatsApp, Messages, IG, etc.); on desktop where the Web
+  // Share API is unsupported or refused, copies the URL to clipboard.
+  const handleShare = async () => {
+    const url = `${window.location.origin}/post/${post.id}`;
+    const shareData = {
+      title: post.title || `${post.author.displayName} on ViralPost`,
+      text: post.excerpt?.slice(0, 120) ?? '',
+      url,
+    };
+
+    if (typeof navigator !== 'undefined' && (navigator as any).canShare?.(shareData)) {
+      try {
+        await (navigator as any).share(shareData);
+        return; // user completed or cancelled — either way we're done
+      } catch (err: any) {
+        // AbortError = user dismissed the sheet. Anything else falls
+        // through to the clipboard path.
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied');
+    } catch {
+      toast.error('Could not share — try copying the URL manually');
+    }
   };
 
   return (
@@ -155,9 +179,15 @@ export default function PostCard({ post }: PostCardProps) {
             </div>
           </div>
         </div>
-        <button className="btn-ghost w-8 h-8 p-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <MoreHorizontal size={16} />
-        </button>
+        {!isMock && (
+          <div className="shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+            <PostMenu
+              postId={post.id}
+              isOwn={!!session?.user && session.user.id === post.author.id}
+              authToken={session?.access_token ?? null}
+            />
+          </div>
+        )}
       </div>
 
       {/* Cover image */}
@@ -176,15 +206,68 @@ export default function PostCard({ post }: PostCardProps) {
         </Link>
       )}
 
-      {/* Content */}
-      <Link href={isMock ? '#' : `/post/${post.id}`} className="block mb-3 group/content">
-        {post.title && (
-          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug group-hover/content:text-primary transition-colors break-words">
-            {post.title}
-          </h2>
-        )}
-        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 break-words">{post.excerpt}</p>
-      </Link>
+      {/* Content. For reshares with no commentary (empty excerpt), we
+          skip this block entirely and let the embedded original card
+          carry the post — like a clean retweet. */}
+      {(post.excerpt?.trim() || post.title) && (
+        <Link href={isMock ? '#' : `/post/${post.id}`} className="block mb-3 group/content">
+          {post.title && (
+            <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug group-hover/content:text-primary transition-colors break-words">
+              {post.title}
+            </h2>
+          )}
+          {post.excerpt && (
+            <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 break-words">{post.excerpt}</p>
+          )}
+        </Link>
+      )}
+
+      {/* Reshare embed — the quoted original lives inside its own
+          mini-card with reduced padding + a left accent stripe so it
+          reads as "this is someone else's content." */}
+      {post.parentPost && (
+        <Link
+          href={`/post/${post.parentPost.id}`}
+          className="block mb-3 rounded-xl border border-border bg-muted/30 hover:bg-muted/50 transition-colors p-3 group/quote"
+        >
+          <div className="flex items-center gap-2 mb-1.5 min-w-0">
+            {post.parentPost.author.avatarUrl ? (
+              <AppImage
+                src={post.parentPost.author.avatarUrl}
+                alt={post.parentPost.author.displayName}
+                width={20}
+                height={20}
+                className="w-5 h-5 rounded-full object-cover border border-border shrink-0"
+              />
+            ) : (
+              <div className="w-5 h-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-[8px] font-bold text-primary shrink-0">
+                {post.parentPost.author.displayName.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <span className="text-xs font-bold text-foreground truncate">{post.parentPost.author.displayName}</span>
+            <span className="text-xs text-muted-foreground shrink-0">@{post.parentPost.author.username}</span>
+          </div>
+          {post.parentPost.title && (
+            <h3 className="text-sm font-bold text-foreground line-clamp-1 mb-0.5 break-words group-hover/quote:text-primary transition-colors">
+              {post.parentPost.title}
+            </h3>
+          )}
+          {post.parentPost.excerpt && (
+            <p className="text-xs text-muted-foreground line-clamp-2 break-words">{post.parentPost.excerpt}</p>
+          )}
+          {post.parentPost.coverImageUrl && (
+            <div className="mt-2 rounded-lg overflow-hidden border border-border max-h-40">
+              <AppImage
+                src={post.parentPost.coverImageUrl}
+                alt={post.parentPost.title || 'Quoted post cover'}
+                width={800}
+                height={420}
+                className="w-full object-cover max-h-40"
+              />
+            </div>
+          )}
+        </Link>
+      )}
 
       {/* Tags */}
       {post.tags.length > 0 && (
@@ -230,23 +313,17 @@ export default function PostCard({ post }: PostCardProps) {
               renderPanelOnly={false}
             />
 
-            {/* Share */}
-            <div className="relative">
-              <button
-                onClick={() => setShowShareMenu(!showShareMenu)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-positive hover:bg-positive-bg transition-all duration-150 active:scale-95"
-              >
-                <Share2 size={14} />
-                <span className="font-mono tabular-nums">{formatCount(post.shares)}</span>
-              </button>
-              {showShareMenu && (
-                <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[140px] animate-scale-in z-10">
-                  <button onClick={handleCopyLink} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">Copy link</button>
-                  <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">Share on X</button>
-                  <button onClick={() => setShowShareMenu(false)} className="w-full text-left px-3 py-2 text-xs font-medium text-foreground hover:bg-muted rounded-lg transition-colors">Share on LinkedIn</button>
-                </div>
-              )}
-            </div>
+            {/* Share — opens the native device share sheet on mobile;
+                falls back to copying the URL on desktop / unsupported
+                browsers. No more useless "Share on X / LinkedIn" stubs. */}
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-positive hover:bg-positive-bg transition-all duration-150 active:scale-95"
+              aria-label="Share post"
+            >
+              <Share2 size={14} />
+              <span className="font-mono tabular-nums">{formatCount(post.shares)}</span>
+            </button>
           </div>
 
           {/* Right stats */}

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, Clock, Users } from 'lucide-react';
 import PostCard from './PostCard';
+import SwipeablePost from './SwipeablePost';
 import AdSlotCard from './AdSlotCard';
 import FeedSkeleton from './FeedSkeleton';
 import { mockPosts, type MockPost } from '@/lib/mockData';
@@ -43,6 +44,25 @@ function dbRpcPostToMockPost(p: any): MockPost {
 }
 
 function dbPostToMockPost(p: any): MockPost {
+  // Reshares carry the embedded original via parent_post (from the
+  // PostgREST FK-resolved nested select in /api/posts GET).
+  const parent = p.parent_post;
+  const parentPost = parent && parent.users
+    ? {
+        id: parent.id,
+        title: parent.title || '',
+        excerpt: parent.excerpt || '',
+        author: {
+          username: parent.users.username || 'unknown',
+          displayName: parent.users.display_name || 'Unknown',
+          avatarUrl: parent.users.avatar_url || '',
+          isVerified: !!parent.users.is_verified,
+        },
+        publishedAt: parent.published_at || '',
+        coverImageUrl: parent.featured_image_url ?? null,
+      }
+    : null;
+
   return {
     id: p.id,
     title: p.title || '',
@@ -57,7 +77,7 @@ function dbPostToMockPost(p: any): MockPost {
     tags: p.tags || [],
     likes: p.likes_count || 0,
     comments: p.comments_count || 0,
-    shares: p.shares_count || 0,
+    shares: p.shares_count || p.reshares_count || 0,
     views: p.views_count || 0,
     pointsEarned: p.points_earned || 0,
     timeAgo: '',
@@ -66,6 +86,7 @@ function dbPostToMockPost(p: any): MockPost {
     isTrending: p.is_trending || false,
     isAiEnhanced: p.is_ai_enhanced || false,
     coverImageUrl: p.featured_image_url ?? null,
+    parentPost,
   };
 }
 
@@ -179,15 +200,21 @@ export default function FeedTabs() {
         <FollowingEmptyState />
       ) : (
         <div className="flex flex-col gap-4">
-          {posts.map((post, index) => (
-            <React.Fragment key={`feed-item-${post.id}`}>
-              <PostCard post={post} />
-              {/* Ad slot every 5th post */}
-              {(index + 1) % 5 === 0 && index < posts.length - 1 && (
-                <AdSlotCard key={`ad-slot-${index}`} />
-              )}
-            </React.Fragment>
-          ))}
+          {posts.map((post, index) => {
+            // mock IDs (post-001 etc.) have no DB row → swipe is disabled
+            const isMock = !/^[0-9a-f]{8}-/i.test(post.id);
+            return (
+              <React.Fragment key={`feed-item-${post.id}`}>
+                <SwipeablePost post={post} disabled={isMock}>
+                  <PostCard post={post} />
+                </SwipeablePost>
+                {/* Ad slot every 5th post */}
+                {(index + 1) % 5 === 0 && index < posts.length - 1 && (
+                  <AdSlotCard key={`ad-slot-${index}`} />
+                )}
+              </React.Fragment>
+            );
+          })}
 
           {/* Load more */}
           <button className="btn-ghost w-full py-3 text-sm font-semibold border border-border rounded-xl hover:bg-muted mt-2">

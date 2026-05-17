@@ -21,6 +21,22 @@ export interface MockPost {
   isTrending: boolean;
   isAiEnhanced: boolean;
   coverImageUrl?: string | null;
+  /** Set when this post is a reshare — the embedded original card data.
+   *  Only the fields needed to render the quote preview, not the full
+   *  MockPost. */
+  parentPost?: {
+    id: string;
+    title: string;
+    excerpt: string;
+    author: {
+      username: string;
+      displayName: string;
+      avatarUrl: string;
+      isVerified: boolean;
+    };
+    publishedAt: string;
+    coverImageUrl?: string | null;
+  } | null;
 }
 
 export const mockPosts: MockPost[] = [
