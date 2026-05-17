@@ -46,12 +46,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   // Reshape the flat RPC output into the nested {users} shape the client
   // already consumes, so no client changes are needed.
+  // NOTE: column names are c_* (comment) and author_* (user) per migration
+  // 016, which renamed them to stop the RETURNS TABLE variables from
+  // shadowing the underlying source columns (which produced NULL content).
   const all = (flat ?? []).map((r: any) => ({
-    id: r.id,
-    content: r.content,
-    created_at: r.created_at,
-    likes_count: r.likes_count,
-    parent_comment_id: r.parent_comment_id,
+    id: r.c_id,
+    content: r.c_content,
+    created_at: r.c_created_at,
+    likes_count: r.c_likes_count,
+    parent_comment_id: r.c_parent_comment_id,
     users: {
       id: r.author_id,
       username: r.author_username,
