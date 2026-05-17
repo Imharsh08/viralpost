@@ -76,24 +76,15 @@ export async function POST(request: Request) {
       ? `Title (optional context, do not echo verbatim): "${title.trim()}"\n\n`
       : '';
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    // Google Gemini API key (preferred). Falls back to ANTHROPIC_API_KEY
+    // if someone later wants to swap back to Claude — both flows are tried
+    // in order. If neither is set, we fall through to the rule-based mock.
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
 
-    if (apiKey) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1400,
-          system: `You are a viral social media post writer who tailors every rewrite to the author's specific audience. You ALWAYS output valid JSON and nothing else — no markdown, no explanation, no code fences. Raw JSON only.`,
-          messages: [
-            {
-              role: 'user',
-              content: `Rewrite the post below for the author's target audience.
+    const systemPrompt = `You are a viral social media post writer who tailors every rewrite to the author's specific audience. You ALWAYS output valid JSON and nothing else — no markdown, no explanation, no code fences. Raw JSON only.`;
+
+    const userPrompt = `Rewrite the post below for the author's target audience.
 
 AUDIENCE
 The author writes for: ${nichesLabel}.
@@ -125,9 +116,59 @@ ${text.trim()}
 """
 
 Output ONLY this JSON, nothing else:
-{"enhanced_text":"<full rewritten post here, use \\n for line breaks>","hashtags":["#Tag1","#Tag2","#Tag3","#Tag4","#Tag5"]}`,
-            },
-          ],
+{"enhanced_text":"<full rewritten post here, use \\n for line breaks>","hashtags":["#Tag1","#Tag2","#Tag3","#Tag4","#Tag5"]}`;
+
+    if (geminiKey) {
+      // Gemini 2.0 Flash — fast + free-tier friendly. responseMimeType
+      // forces raw JSON so we don't need to regex out a code-block.
+      const model = 'gemini-2.0-flash';
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1400,
+            responseMimeType: 'application/json',
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text().catch(() => '');
+        throw new Error(`Gemini API error: ${response.status} ${errBody.slice(0, 200)}`);
+      }
+
+      const data = await response.json() as any;
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      if (!content) throw new Error('Empty Gemini response');
+
+      // With responseMimeType=application/json the body should be pure JSON,
+      // but be defensive in case Gemini wraps it in a code-fence anyway.
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Invalid Gemini response format');
+
+      const result = JSON.parse(jsonMatch[0]);
+      return Response.json(result);
+    }
+
+    if (anthropicKey) {
+      // Anthropic Claude — kept as an opt-in fallback if you ever swap back.
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1400,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
         }),
       });
 
