@@ -10,6 +10,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
 import NotificationBell from '@/components/NotificationBell';
+import ClientErrorBoundary from '@/components/ClientErrorBoundary';
 
 const navItems = [
   { label: 'Feed', href: '/', icon: Home },
@@ -116,7 +117,9 @@ export default function TopbarClient() {
             </div>
 
             {/* Notifications */}
-            <NotificationBell />
+            <ClientErrorBoundary>
+              <NotificationBell />
+            </ClientErrorBoundary>
 
             {/* Write CTA */}
             <Link href="/write-editor-page" className="btn-primary">

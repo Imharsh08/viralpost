@@ -1,19 +1,61 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 
 /**
  * Shared hook for the unread notification count.
- * Subscribes to realtime INSERTs on the `notifications` table filtered to
- * the current user. Increments locally so the badge updates within ~200ms
- * of the trigger firing — no polling.
  *
- * Used by both the desktop NotificationBell and the mobile bottom nav,
- * so both surfaces stay in sync via the same module-level realtime
- * channel (Supabase JS dedupes by channel name).
+ * Multiple components can call this (e.g. desktop NotificationBell AND
+ * mobile bottom nav). To avoid double-subscribing to the same channel
+ * name (which can throw on some Supabase JS versions), we keep a
+ * module-level singleton channel + a Set of listener setters. The first
+ * caller creates the channel; subsequent callers just register their
+ * setter; the last to unmount tears down the channel.
  */
+
+type Setter = (updater: (n: number) => number) => void;
+
+let channel: RealtimeChannel | null = null;
+let channelUserId: string | null = null;
+const listeners = new Set<Setter>();
+
+function ensureChannel(userId: string) {
+  if (channel && channelUserId === userId) return;
+  // Tear down old channel for a different user (sign-out / switch).
+  if (channel) {
+    try { supabase.removeChannel(channel); } catch {}
+    channel = null;
+    channelUserId = null;
+  }
+  channel = supabase
+    .channel(`notifications-unread:${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`,
+      },
+      () => {
+        listeners.forEach((setter) => setter((n) => n + 1));
+      },
+    )
+    .subscribe();
+  channelUserId = userId;
+}
+
+function teardownIfIdle() {
+  if (listeners.size === 0 && channel) {
+    try { supabase.removeChannel(channel); } catch {}
+    channel = null;
+    channelUserId = null;
+  }
+}
+
 export function useUnreadNotifications(): { unreadCount: number; reset: () => void } {
   const { user, session } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -36,24 +78,16 @@ export function useUnreadNotifications(): { unreadCount: number; reset: () => vo
     return () => { cancelled = true; };
   }, [session?.access_token]);
 
-  // Realtime: increment on every INSERT for this user
+  // Register this component's setter on the singleton channel
   useEffect(() => {
     if (!user?.id) return;
-    const channel = supabase
-      .channel(`notifications-unread:${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`,
-        },
-        () => setUnreadCount((n) => n + 1),
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    ensureChannel(user.id);
+    const setter: Setter = (fn) => setUnreadCount(fn);
+    listeners.add(setter);
+    return () => {
+      listeners.delete(setter);
+      teardownIfIdle();
+    };
   }, [user?.id]);
 
   return {
