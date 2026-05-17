@@ -9,9 +9,13 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <Topbar />
-      <main className="max-w-screen-2xl mx-auto px-4 lg:px-8 xl:px-10 2xl:px-16 py-6">
+      {/* min-w-0 on the flex/main containers stops a runaway child (a
+          long URL, a wide image, etc.) from forcing horizontal scroll
+          on phones. The page wrapper is already overflow-x-hidden as a
+          safety net. */}
+      <main className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-8 xl:px-10 2xl:px-16 py-4 sm:py-6 min-w-0">
         {children}
       </main>
       {/* Errors inside the realtime-subscribed bottom nav shouldn't kill

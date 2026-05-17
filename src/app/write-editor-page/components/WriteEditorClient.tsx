@@ -235,7 +235,11 @@ export default function WriteEditorClient() {
   };
 
   return (
-    <div className="max-w-screen-2xl mx-auto">
+    // On mobile, the PublishBar lives at the bottom of the viewport
+    // (fixed). Pad the bottom of the editor so the editor textarea isn't
+    // hidden beneath it. The bottom-nav itself already adds h-16 spacer,
+    // so we only need to clear the publish-bar's height (~64px).
+    <div className="max-w-screen-2xl mx-auto pb-24 sm:pb-0">
       {/* Page header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>

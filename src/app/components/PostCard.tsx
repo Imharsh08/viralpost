@@ -100,10 +100,11 @@ export default function PostCard({ post }: PostCardProps) {
   };
 
   return (
-    <article className="card p-5 hover:shadow-card-hover transition-all duration-200 group animate-fade-in">
-      {/* Author row */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
+    <article className="card p-3 sm:p-5 hover:shadow-card-hover transition-all duration-200 group animate-fade-in overflow-hidden">
+      {/* Author row. min-w-0 on flex children lets long names truncate
+          instead of pushing the layout sideways on phones. */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
           <Link href={isMock ? '#' : `/u/${post.author.username}`} className="relative shrink-0">
             <AppImage
               src={post.author.avatarUrl}
@@ -117,11 +118,11 @@ export default function PostCard({ post }: PostCardProps) {
               </div>
             )}
           </Link>
-          <div>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
               <Link
                 href={isMock ? '#' : `/u/${post.author.username}`}
-                className="text-sm font-bold text-foreground hover:text-primary transition-colors"
+                className="text-sm font-bold text-foreground hover:text-primary transition-colors truncate max-w-full"
               >
                 {post.author.displayName}
               </Link>
@@ -135,14 +136,14 @@ export default function PostCard({ post }: PostCardProps) {
                 />
               )}
             </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-muted-foreground">@{post.author.username}</span>
-              <span className="text-xs text-muted-foreground">·</span>
-              <span className="text-xs text-muted-foreground">{formatPostDate(post.publishedAt)}</span>
+            <div className="flex items-center gap-2 mt-0.5 min-w-0">
+              <span className="text-xs text-muted-foreground truncate">@{post.author.username}</span>
+              <span className="text-xs text-muted-foreground shrink-0">·</span>
+              <span className="text-xs text-muted-foreground shrink-0">{formatPostDate(post.publishedAt)}</span>
             </div>
           </div>
         </div>
-        <button className="btn-ghost w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button className="btn-ghost w-8 h-8 p-0 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
           <MoreHorizontal size={16} />
         </button>
       </div>
@@ -166,11 +167,11 @@ export default function PostCard({ post }: PostCardProps) {
       {/* Content */}
       <Link href={isMock ? '#' : `/post/${post.id}`} className="block mb-3 group/content">
         {post.title && (
-          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug group-hover/content:text-primary transition-colors">
+          <h2 className="text-base font-bold text-foreground mb-1.5 leading-snug group-hover/content:text-primary transition-colors break-words">
             {post.title}
           </h2>
         )}
-        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3">{post.excerpt}</p>
+        <p className="text-sm text-foreground/80 leading-relaxed line-clamp-3 break-words">{post.excerpt}</p>
       </Link>
 
       {/* Tags */}
@@ -182,7 +183,7 @@ export default function PostCard({ post }: PostCardProps) {
               <Link
                 key={`${post.id}-tag-${tag}`}
                 href={`/tag/${encodeURIComponent(clean)}`}
-                className="badge-tag text-xs hover:bg-primary/15 transition-colors"
+                className="badge-tag text-xs hover:bg-primary/15 transition-colors max-w-full truncate"
               >
                 #{clean}
               </Link>
@@ -193,9 +194,9 @@ export default function PostCard({ post }: PostCardProps) {
 
       {/* Engagement row */}
       <div className="pt-3 border-t border-border">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           {/* Left actions */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap">
             {/* Like */}
             <button
               onClick={handleLike}
@@ -237,7 +238,7 @@ export default function PostCard({ post }: PostCardProps) {
           </div>
 
           {/* Right stats */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Eye size={12} />
               <span className="font-mono tabular-nums">{formatCount(viewCount)}</span>

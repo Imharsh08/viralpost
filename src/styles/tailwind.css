@@ -41,10 +41,21 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Final safety net: nothing in the app should ever produce horizontal
+       scroll on mobile. Combined with per-component overflow-hidden +
+       break-words, this keeps the viewport pinned to device width. */
+    overflow-x: hidden;
   }
 
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
+  }
+
+  /* Long URLs, base64-y blobs, and unbroken words won't blow up paragraphs
+     unless we explicitly allow them to break. */
+  p, h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: anywhere;
   }
 
   h1, h2, h3, h4, h5, h6, p {

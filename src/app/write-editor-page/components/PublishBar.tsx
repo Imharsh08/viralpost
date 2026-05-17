@@ -75,13 +75,25 @@ export default function PublishBar({
     : 'bg-primary/50';
 
   return (
-    <div className="sticky top-16 z-30 -mx-4 px-4 pt-2 pb-3 bg-background/85 backdrop-blur-md border-b border-border">
-      <div className="card p-3 bg-gradient-to-r from-violet-50 via-purple-50 to-amber-50 border-purple-200 shadow-sm">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          {/* Left: status + tags */}
-          <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
+    // On mobile: stick to the BOTTOM (just above the mobile bottom nav), so
+    // thumb-reachable actions stay accessible without competing with editor
+    // content above. On sm+ screens: revert to the top-sticky tray that
+    // sits below the global topbar.
+    <div
+      className="
+        fixed bottom-14 inset-x-0 z-30 px-3 pt-2 pb-2 bg-background/95 backdrop-blur-md border-t border-border
+        sm:static sm:bottom-auto sm:inset-x-auto sm:-mx-4 sm:px-4 sm:pt-2 sm:pb-3 sm:border-t-0 sm:border-b
+        sm:sticky sm:top-16
+      "
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
+    >
+      <div className="card p-2.5 sm:p-3 bg-gradient-to-r from-violet-50 via-purple-50 to-amber-50 border-purple-200 shadow-sm">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
+          {/* Left: status + tags. min-w-0 lets it shrink past its content size
+              so the right-side action buttons never get pushed off-screen. */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0 flex-1 basis-full sm:basis-0">
             <span
-              className={`text-xs font-mono tabular-nums font-bold ${
+              className={`text-[11px] sm:text-xs font-mono tabular-nums font-bold shrink-0 ${
                 isOverLimit
                   ? 'text-negative'
                   : charCount > 1600
@@ -97,7 +109,7 @@ export default function PublishBar({
 
             {/* Slim progress bar — visual companion to the char count */}
             <div
-              className="h-1 w-20 sm:w-28 rounded-full bg-muted overflow-hidden shrink-0"
+              className="h-1 flex-1 sm:flex-none sm:w-28 min-w-[60px] max-w-[120px] sm:max-w-none rounded-full bg-muted overflow-hidden"
               role="progressbar"
               aria-valuenow={charCount}
               aria-valuemin={0}
@@ -109,9 +121,11 @@ export default function PublishBar({
               />
             </div>
 
-            <span className="text-muted-foreground/40">·</span>
+            {/* Hide the separator + status hints on mobile to free up space.
+                On sm+ we restore the original look. */}
+            <span className="hidden sm:inline text-muted-foreground/40">·</span>
             {selectedHashtags.length > 0 ? (
-              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <div className="hidden sm:flex items-center gap-1.5 flex-wrap min-w-0">
                 {selectedHashtags.slice(0, 3).map((tag) => (
                   <span key={`bar-tag-${tag}`} className="badge-tag text-xs">{tag}</span>
                 ))}
@@ -120,7 +134,7 @@ export default function PublishBar({
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Zap size={12} className="text-amber-500 fill-amber-300" />
                 <span className="hidden sm:inline">
                   {hasContent ? 'Earn points from every view' : 'Start writing to earn points'}
@@ -130,34 +144,36 @@ export default function PublishBar({
           </div>
 
           {/* Right: dominant actions */}
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            {/* Use Enhanced / Keep Original — shown when AI result is ready */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-wrap justify-end w-full sm:w-auto">
+            {/* Use Enhanced / Keep Original — shown when AI result is ready.
+                On mobile each takes equal share of the row (flex-1) and
+                shows only icon + short label so both fit at 360px. */}
             {enhanced && (
               <>
                 <button
                   onClick={onKeepOriginal}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150 active:scale-95"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border text-xs sm:text-sm font-semibold text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-150 active:scale-95"
                 >
                   <RotateCcw size={14} />
-                  Keep Original
+                  <span>Keep <span className="hidden sm:inline">Original</span></span>
                 </button>
                 <button
                   onClick={onUseEnhanced}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-positive text-white text-sm font-bold shadow-sm hover:opacity-90 transition-all duration-150 active:scale-95"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-positive text-white text-xs sm:text-sm font-bold shadow-sm hover:opacity-90 transition-all duration-150 active:scale-95"
                 >
                   <Check size={14} />
-                  Use Enhanced
+                  <span>Use <span className="hidden sm:inline">Enhanced</span></span>
                 </button>
               </>
             )}
 
             {!enhanced && (
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <button
                   onClick={onEnhance}
                   disabled={!canEnhance || isEnhancing}
                   title={enhanceDisabledReason || 'AI rewrite your post with a proven viral framework'}
-                  className={`relative flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md ${
+                  className={`relative w-full sm:w-auto flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-md ${
                     canEnhance
                       ? 'bg-gradient-to-r from-violet-600 via-fuchsia-600 to-amber-500 text-white hover:shadow-lg hover:scale-[1.02]'
                       : 'bg-muted text-muted-foreground'
@@ -165,29 +181,29 @@ export default function PublishBar({
                 >
                   {isEnhancing ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Going Viral…
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="whitespace-nowrap">Going Viral…</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles size={16} className={canEnhance ? 'fill-yellow-300 text-yellow-300' : ''} />
-                      <span>Make it Viral</span>
-                      <span aria-hidden>✨</span>
+                      <Sparkles size={14} className={canEnhance ? 'fill-yellow-300 text-yellow-300' : ''} />
+                      <span className="whitespace-nowrap">Make it Viral</span>
+                      <span aria-hidden className="hidden sm:inline">✨</span>
                     </>
                   )}
                 </button>
 
                 {showViralHint && canEnhance && (
-                  <div className="absolute top-full right-0 mt-2 w-56 bg-foreground text-background text-xs font-medium rounded-xl px-3 py-2 shadow-modal animate-fade-in z-40">
-                    <div className="absolute -top-1.5 right-8 w-3 h-3 rotate-45 bg-foreground" />
+                  <div className="absolute bottom-full sm:bottom-auto sm:top-full right-0 mb-2 sm:mb-0 sm:mt-2 w-56 bg-foreground text-background text-xs font-medium rounded-xl px-3 py-2 shadow-modal animate-fade-in z-40">
+                    <div className="absolute -bottom-1.5 sm:-top-1.5 sm:bottom-auto right-8 w-3 h-3 rotate-45 bg-foreground" />
                     Tap here — AI rewrites your post using a proven viral framework.
                   </div>
                 )}
               </div>
             )}
 
-            <div className="relative">
-              <div className={`flex rounded-xl shadow-md transition-all duration-200 ${
+            <div className="relative flex-1 sm:flex-none">
+              <div className={`flex w-full sm:w-auto rounded-xl shadow-md transition-all duration-200 ${
                 canPublish && !isPublishing
                   ? enhanced
                     ? 'shadow-primary/30 hover:shadow-lg hover:shadow-primary/40'
@@ -198,7 +214,7 @@ export default function PublishBar({
                   onClick={() => !isPublishing && canPublish && onPublish('published')}
                   disabled={!canPublish || isPublishing}
                   title={publishDisabledReason || (enhanced ? 'Publish your enhanced post' : 'Publish to the feed')}
-                  className={`flex items-center gap-2 px-5 py-3 rounded-l-xl text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:cursor-not-allowed ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2.5 sm:py-3 rounded-l-xl text-xs sm:text-sm font-extrabold transition-all duration-150 active:scale-95 disabled:cursor-not-allowed ${
                     !canPublish || isPublishing
                       ? 'bg-muted text-muted-foreground'
                       : enhanced
@@ -208,13 +224,13 @@ export default function PublishBar({
                 >
                   {isPublishing ? (
                     <>
-                      <Loader2 size={15} className="animate-spin" />
-                      Publishing…
+                      <Loader2 size={14} className="animate-spin" />
+                      <span className="whitespace-nowrap">Publishing…</span>
                     </>
                   ) : (
                     <>
-                      <Send size={15} className={canPublish ? '' : ''} />
-                      Publish
+                      <Send size={14} />
+                      <span>Publish</span>
                     </>
                   )}
                 </button>
@@ -222,7 +238,7 @@ export default function PublishBar({
                   onClick={() => setShowPublishMenu(!showPublishMenu)}
                   disabled={!canPublish || isPublishing}
                   title="More publish options"
-                  className={`flex items-center justify-center w-9 rounded-r-xl border-l transition-all duration-150 disabled:cursor-not-allowed active:scale-95 ${
+                  className={`flex items-center justify-center w-8 sm:w-9 rounded-r-xl border-l transition-all duration-150 disabled:cursor-not-allowed active:scale-95 ${
                     !canPublish || isPublishing
                       ? 'bg-muted text-muted-foreground border-border'
                       : enhanced
@@ -237,7 +253,9 @@ export default function PublishBar({
               </div>
 
               {showPublishMenu && (
-                <div className="absolute top-full right-0 mt-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[180px] animate-scale-in z-40">
+                /* On mobile the bar lives at the bottom of the screen, so
+                   the menu opens UPWARD; on sm+ it opens downward as before. */
+                <div className="absolute bottom-full sm:bottom-auto sm:top-full right-0 mb-2 sm:mb-0 sm:mt-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[180px] animate-scale-in z-40">
                   <button
                     onClick={() => { onPublish('published'); setShowPublishMenu(false); }}
                     className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-muted rounded-lg transition-colors text-left"
