@@ -121,38 +121,45 @@ Output ONLY this JSON, nothing else:
     if (geminiKey) {
       // Gemini 2.0 Flash — fast + free-tier friendly. responseMimeType
       // forces raw JSON so we don't need to regex out a code-block.
-      const model = 'gemini-2.0-flash';
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1400,
-            responseMimeType: 'application/json',
-          },
-        }),
-      });
+      try {
+        const model = 'gemini-2.0-flash';
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 1400,
+              responseMimeType: 'application/json',
+            },
+          }),
+        });
 
-      if (!response.ok) {
-        const errBody = await response.text().catch(() => '');
-        throw new Error(`Gemini API error: ${response.status} ${errBody.slice(0, 200)}`);
+        if (!response.ok) {
+          const errBody = await response.text().catch(() => '');
+          throw new Error(`Gemini API ${response.status}: ${errBody.slice(0, 200)}`);
+        }
+
+        const data = await response.json() as any;
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        if (!content) throw new Error('Empty Gemini response');
+
+        // With responseMimeType=application/json the body should be pure JSON,
+        // but be defensive in case Gemini wraps it in a code-fence anyway.
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error('Invalid Gemini response format');
+
+        const result = JSON.parse(jsonMatch[0]);
+        return Response.json({ ...result, provider: 'gemini' });
+      } catch (geminiErr: any) {
+        // Don't 500 — surface what happened in the log and try Anthropic
+        // (if configured), or fall through to the mock so the user still
+        // gets a usable post instead of an opaque error.
+        console.error('[enhance] Gemini failed, falling back:', geminiErr?.message);
       }
-
-      const data = await response.json() as any;
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-      if (!content) throw new Error('Empty Gemini response');
-
-      // With responseMimeType=application/json the body should be pure JSON,
-      // but be defensive in case Gemini wraps it in a code-fence anyway.
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('Invalid Gemini response format');
-
-      const result = JSON.parse(jsonMatch[0]);
-      return Response.json(result);
     }
 
     if (anthropicKey) {
@@ -183,14 +190,21 @@ Output ONLY this JSON, nothing else:
       if (!jsonMatch) throw new Error('Invalid AI response format');
 
       const result = JSON.parse(jsonMatch[0]);
-      return Response.json(result);
+      return Response.json({ ...result, provider: 'anthropic' });
     }
 
-    // Mock fallback (no API key) — uses niche tags to flavor hashtags
+    // Mock fallback — runs when no AI provider is configured OR every
+    // configured provider above failed. Returns the same shape so the
+    // client never has to know.
     const keywords = extractKeywords(text);
     const hashtags = generateHashtags(keywords, nicheTags);
     const enhanced = buildSmartMock(text);
-    return Response.json({ enhanced_text: enhanced, hashtags, mock: true });
+    return Response.json({
+      enhanced_text: enhanced,
+      hashtags,
+      mock: true,
+      provider: 'mock',
+    });
   } catch (error) {
     console.error('AI enhance error:', error);
     return Response.json({ error: 'Enhancement failed' }, { status: 500 });
