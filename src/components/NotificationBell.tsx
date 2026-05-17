@@ -6,6 +6,7 @@ import { Bell, Heart, MessageCircle, UserPlus, Zap, Check } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase/client';
 import AppImage from '@/components/ui/AppImage';
+import { useUnreadNotifications } from '@/lib/hooks/useUnreadNotifications';
 
 interface Notification {
   id: string;
@@ -60,9 +61,9 @@ export default function NotificationBell() {
   const { user, session } = useAuth();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { unreadCount, reset: resetUnread } = useUnreadNotifications();
 
   const authHeader = session ? `Bearer ${session.access_token}` : '';
 
@@ -73,7 +74,6 @@ export default function NotificationBell() {
       const res = await fetch('/api/notifications', { headers: { Authorization: authHeader } });
       const data = await res.json();
       setNotifications(data.notifications ?? []);
-      setUnreadCount(data.unread_count ?? 0);
     } catch {
       // silent
     } finally {
@@ -86,7 +86,8 @@ export default function NotificationBell() {
     if (user) load();
   }, [user?.id]);
 
-  // Realtime subscription for new notifications
+  // Realtime subscription for new notifications (panel list only — the
+  // unread badge has its own subscription via useUnreadNotifications)
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase
@@ -133,7 +134,7 @@ export default function NotificationBell() {
           headers: { 'Content-Type': 'application/json', Authorization: authHeader },
           body: JSON.stringify({}),
         }).catch(() => {});
-        setUnreadCount(0);
+        resetUnread();
       }
     }
   };

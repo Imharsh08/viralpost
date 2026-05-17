@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Search, PenSquare, Zap, Menu, X, Home, LogIn, Award,
+  Search, PenSquare, Zap, Home, LogIn, Award,
   User, BarChart2, LogOut, ChevronDown, FileText, Settings, Trophy
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,7 +22,7 @@ export default function TopbarClient() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, signOut, getUserProfile } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  // (Mobile drawer removed in favor of MobileBottomNav.)
   const [searchOpen, setSearchOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
@@ -184,80 +184,27 @@ export default function TopbarClient() {
         )}
       </div>
 
-      {/* Mobile hamburger */}
-      <button className="md:hidden btn-ghost w-9 h-9 p-0" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle mobile menu">
-        {mobileOpen ? <X size={20} /> : <Menu size={20} />}
-      </button>
-
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div className="absolute top-16 left-0 right-0 bg-card border-b border-border shadow-modal animate-slide-up md:hidden z-50">
-          <div className="p-4 flex flex-col gap-2">
-            {user && (
-              <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted mb-1">
-                <AvatarOrInitials avatarUrl={avatarUrl} initials={initials} size="md" />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-foreground truncate">{displayName}</p>
-                  {username && <p className="text-xs text-muted-foreground">@{username}</p>}
-                </div>
-              </div>
-            )}
-
-            {navItems.map((item) => {
-              const active = pathname === item.href;
-              return (
-                <Link key={`mobile-nav-${item.label}`} href={item.href} onClick={() => setMobileOpen(false)} className={active ? 'nav-link-active' : 'nav-link'}>
-                  <item.icon size={16} />
-                  {item.label}
-                </Link>
-              );
-            })}
-
-            {user && (
-              <>
-                <Link href="/profile" onClick={() => setMobileOpen(false)} className="nav-link">
-                  <User size={16} />
-                  My Profile
-                </Link>
-                <Link href="/analytics" onClick={() => setMobileOpen(false)} className="nav-link">
-                  <BarChart2 size={16} />
-                  Analytics
-                </Link>
-              </>
-            )}
-
-            <hr className="border-border my-1" />
-
-            {user ? (
-              <>
-                <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-700 w-fit">
-                  <Zap size={13} className="fill-amber-500 text-amber-500" />
-                  <span className="text-xs font-bold font-mono tabular-nums">{(profile?.points_balance ?? 0).toLocaleString()} pts</span>
-                </div>
-                <Link href="/write-editor-page" onClick={() => setMobileOpen(false)} className="btn-primary justify-center">
-                  <PenSquare size={15} />
-                  Write a Post
-                </Link>
-                <button onClick={handleSignOut} className="btn-ghost justify-center text-negative border border-border rounded-xl py-2.5">
-                  <LogOut size={15} />
-                  Sign Out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link href="/write-editor-page" onClick={() => setMobileOpen(false)} className="btn-primary justify-center">
-                  <PenSquare size={15} />
-                  Write a Post
-                </Link>
-                <Link href="/sign-up-login-screen" onClick={() => setMobileOpen(false)} className="btn-secondary justify-center">
-                  <LogIn size={15} />
-                  Sign In
-                </Link>
-              </>
-            )}
+      {/* Mobile actions — bottom nav handles primary navigation now, so
+          the top bar only needs the points pill (if signed in) and a
+          search shortcut. The full menu drawer is gone. */}
+      <div className="md:hidden flex items-center gap-2">
+        {user && (
+          <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700">
+            <Zap size={11} className="fill-amber-500 text-amber-500" />
+            <span className="text-[11px] font-bold font-mono tabular-nums">
+              {(profile?.points_balance ?? 0).toLocaleString()}
+            </span>
           </div>
-        </div>
-      )}
+        )}
+        <Link
+          href="/search"
+          className="btn-ghost w-9 h-9 p-0"
+          aria-label="Search"
+        >
+          <Search size={18} />
+        </Link>
+      </div>
+
     </>
   );
 }
