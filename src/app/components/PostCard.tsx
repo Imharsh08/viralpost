@@ -56,6 +56,13 @@ export default function PostCard({ post }: PostCardProps) {
     if (!mutatingRef.current) setLikeCount(rtCounts.likes_count);
   }, [rtCounts.likes_count]);
 
+  // Sync the heart's filled state when the parent updates post.isLiked
+  // (e.g. after the feed's bulk-like lookup resolves). Skip during a
+  // local mutation so optimistic state isn't overwritten.
+  useEffect(() => {
+    if (!mutatingRef.current) setLiked(post.isLiked);
+  }, [post.isLiked]);
+
   useEffect(() => {
     if (isMock || viewFired.current) return;
     viewFired.current = true;

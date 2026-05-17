@@ -113,6 +113,33 @@ export default function FeedTabs() {
       .finally(() => setFollowingLoading(false));
   }, [activeTab, session]);
 
+  // After posts load (or when the session changes), ask the server which
+  // of the visible real posts the viewer has already liked, then patch
+  // isLiked onto each. One round-trip for the whole feed; anonymous
+  // viewers skip this entirely.
+  useEffect(() => {
+    if (!session) return;
+    const ids = [
+      ...dbPosts.map((p) => p.id),
+      ...followingPosts.map((p) => p.id),
+    ].filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id));
+    if (ids.length === 0) return;
+
+    fetch(`/api/posts/likes-bulk?ids=${ids.join(',')}`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const liked: Set<string> = new Set(Array.isArray(data.liked) ? data.liked : []);
+        if (liked.size === 0) return;
+        setDbPosts((prev) => prev.map((p) => (liked.has(p.id) ? { ...p, isLiked: true } : p)));
+        setFollowingPosts((prev) => prev.map((p) => (liked.has(p.id) ? { ...p, isLiked: true } : p)));
+      })
+      .catch(() => {});
+    // Re-run when the underlying post lists change. Compare lengths +
+    // session token so we don't loop on shallow-equal arrays.
+  }, [session?.access_token, dbPosts.length, followingPosts.length]);
+
   const handleTabChange = (tabId: string) => {
     if (tabId === activeTab) return;
     setActiveTab(tabId);
