@@ -119,10 +119,13 @@ Output ONLY this JSON, nothing else:
 {"enhanced_text":"<full rewritten post here, use \\n for line breaks>","hashtags":["#Tag1","#Tag2","#Tag3","#Tag4","#Tag5"]}`;
 
     if (geminiKey) {
-      // Gemini 2.0 Flash — fast + free-tier friendly. responseMimeType
-      // forces raw JSON so we don't need to regex out a code-block.
+      // Gemini model is configurable via GEMINI_MODEL env var so you can
+      // upgrade (e.g. gemini-2.5-flash, gemini-2.5-pro, or any future
+      // gemini-3-* when Google ships it) without a code redeploy. Default
+      // is gemini-2.0-flash — fast + free-tier friendly + stable today.
+      // responseMimeType forces raw JSON so we don't have to extract it.
       try {
-        const model = 'gemini-2.0-flash';
+        const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`;
         const response = await fetch(url, {
           method: 'POST',
@@ -140,7 +143,12 @@ Output ONLY this JSON, nothing else:
 
         if (!response.ok) {
           const errBody = await response.text().catch(() => '');
-          throw new Error(`Gemini API ${response.status}: ${errBody.slice(0, 200)}`);
+          // 404 specifically means the model name doesn't exist — surface
+          // that loud and clear instead of a generic "API error".
+          if (response.status === 404) {
+            throw new Error(`Gemini model "${model}" not found. Set GEMINI_MODEL to a valid id (e.g. gemini-2.0-flash, gemini-2.5-flash).`);
+          }
+          throw new Error(`Gemini API ${response.status} (${model}): ${errBody.slice(0, 200)}`);
         }
 
         const data = await response.json() as any;
@@ -153,7 +161,7 @@ Output ONLY this JSON, nothing else:
         if (!jsonMatch) throw new Error('Invalid Gemini response format');
 
         const result = JSON.parse(jsonMatch[0]);
-        return Response.json({ ...result, provider: 'gemini' });
+        return Response.json({ ...result, provider: 'gemini', model });
       } catch (geminiErr: any) {
         // Don't 500 — surface what happened in the log and try Anthropic
         // (if configured), or fall through to the mock so the user still
