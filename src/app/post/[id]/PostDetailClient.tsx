@@ -12,6 +12,7 @@ import AppImage from '@/components/ui/AppImage';
 import CommentSection from '@/app/components/CommentSection';
 import FollowButton from '@/app/components/FollowButton';
 import { usePostRealtime } from '@/lib/hooks/usePostRealtime';
+import { formatCount } from '@/lib/formatCount';
 
 interface PostDetail {
   id: string;
@@ -317,7 +318,7 @@ export default function PostDetailClient({ postId }: { postId: string }) {
                 }`}
               >
                 <Heart size={16} className={isLiked ? 'fill-negative' : ''} />
-                <span className="font-mono tabular-nums">{likeCount.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{formatCount(likeCount)}</span>
               </button>
 
               <CommentSection
@@ -340,7 +341,7 @@ export default function PostDetailClient({ postId }: { postId: string }) {
 
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Eye size={13} />
-              <span className="font-mono tabular-nums">{rt.views_count.toLocaleString()}</span>
+              <span className="font-mono tabular-nums">{formatCount(rt.views_count)}</span>
               <span>views</span>
             </div>
           </div>
@@ -383,7 +384,7 @@ export default function PostDetailClient({ postId }: { postId: string }) {
               {author.is_verified && <BadgeCheck size={14} className="text-primary fill-primary/20" />}
             </div>
             <p className="text-xs text-muted-foreground mb-1">
-              @{author.username} · {(author.follower_count ?? 0).toLocaleString()} followers
+              @{author.username} · {formatCount(author.follower_count)} followers
             </p>
             {author.bio && <p className="text-sm text-muted-foreground leading-relaxed">{author.bio}</p>}
           </div>

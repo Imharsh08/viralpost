@@ -13,6 +13,7 @@ import AppImage from '@/components/ui/AppImage';
 import { toast } from 'sonner';
 import FollowButton from '@/app/components/FollowButton';
 import { useUserRealtime } from '@/lib/hooks/useUserRealtime';
+import { formatCount } from '@/lib/formatCount';
 
 type Tab = 'posts' | 'drafts' | 'about';
 
@@ -323,8 +324,8 @@ export default function ProfileClient() {
           <AboutRow label="Bio" value={profile?.bio} />
           <AboutRow label="Niches" value={profile?.niche_tags?.length ? profile.niche_tags.map((t: string) => `#${t}`).join(' · ') : undefined} />
           <AboutRow label="Member Since" value={joinedDate} />
-          <AboutRow label="Followers" value={profile?.follower_count?.toLocaleString()} />
-          <AboutRow label="Following" value={profile?.following_count?.toLocaleString()} />
+          <AboutRow label="Followers" value={formatCount(profile?.follower_count)} />
+          <AboutRow label="Following" value={formatCount(profile?.following_count)} />
         </div>
       )}
     </div>
@@ -494,7 +495,7 @@ function StatPill({ icon: Icon, label, value, color }: { icon: any; label: strin
     <div className="flex flex-col items-center gap-1 py-2">
       <Icon size={16} className={color} />
       <span className="text-lg font-extrabold text-foreground font-mono tabular-nums">
-        {value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString()}
+        {formatCount(value)}
       </span>
       <span className="text-xs text-muted-foreground">{label}</span>
     </div>
@@ -581,8 +582,8 @@ function PostList({
 
               {/* Micro stats */}
               <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1"><Eye size={11} />{(post.views_count ?? 0).toLocaleString()}</span>
-                <span className="flex items-center gap-1"><Heart size={11} />{(post.likes_count ?? 0).toLocaleString()}</span>
+                <span className="flex items-center gap-1"><Eye size={11} />{formatCount(post.views_count)}</span>
+                <span className="flex items-center gap-1"><Heart size={11} />{formatCount(post.likes_count)}</span>
                 <span className="flex items-center gap-1 text-amber-600 font-semibold">
                   <Zap size={11} className="fill-amber-400" />+{post.points_earned ?? 0}
                 </span>

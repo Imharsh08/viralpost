@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
 import FollowButton from '@/app/components/FollowButton';
 import { useUserRealtime } from '@/lib/hooks/useUserRealtime';
+import { formatCount } from '@/lib/formatCount';
 
 interface Profile {
   id: string;
@@ -208,7 +209,7 @@ export default function UserProfileClient({ username }: { username: string }) {
 
       {/* Posts */}
       <h2 className="text-base font-bold text-foreground mb-3">
-        Posts ({stats.post_count.toLocaleString()})
+        Posts ({formatCount(stats.post_count)})
       </h2>
 
       {posts.length === 0 ? (
@@ -257,20 +258,20 @@ export default function UserProfileClient({ username }: { username: string }) {
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Heart size={12} />
-                  <span className="font-mono tabular-nums">{post.likes_count.toLocaleString()}</span>
+                  <span className="font-mono tabular-nums">{formatCount(post.likes_count)}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <MessageCircle size={12} />
-                  <span className="font-mono tabular-nums">{post.comments_count.toLocaleString()}</span>
+                  <span className="font-mono tabular-nums">{formatCount(post.comments_count)}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <Eye size={12} />
-                  <span className="font-mono tabular-nums">{post.views_count.toLocaleString()}</span>
+                  <span className="font-mono tabular-nums">{formatCount(post.views_count)}</span>
                 </span>
                 {post.points_earned > 0 && (
                   <span className="flex items-center gap-1 text-amber-600 font-semibold ml-auto">
                     <Zap size={12} className="fill-amber-500 text-amber-500" />
-                    <span className="font-mono tabular-nums">{post.points_earned.toLocaleString()} pts</span>
+                    <span className="font-mono tabular-nums">{formatCount(post.points_earned)} pts</span>
                   </span>
                 )}
               </div>
@@ -290,7 +291,7 @@ function StatPill({ label, value, icon: Icon }: { label: string; value: number; 
         {label}
       </span>
       <span className="text-sm font-bold text-foreground font-mono tabular-nums">
-        {value.toLocaleString()}
+        {formatCount(value)}
       </span>
     </div>
   );

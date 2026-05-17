@@ -9,7 +9,7 @@ import AppImage from '@/components/ui/AppImage';
 
 interface Notification {
   id: string;
-  type: 'like' | 'comment' | 'follow' | 'points' | 'milestone';
+  type: 'like' | 'comment' | 'follow' | 'points' | 'milestone' | 'comment_like' | 'reply';
   message: string;
   post_id: string | null;
   comment_id: string | null;
@@ -39,6 +39,8 @@ function timeAgo(iso: string): string {
 const ICON_MAP = {
   like: Heart,
   comment: MessageCircle,
+  comment_like: Heart,
+  reply: MessageCircle,
   follow: UserPlus,
   points: Zap,
   milestone: Zap,
@@ -47,6 +49,8 @@ const ICON_MAP = {
 const COLOR_MAP = {
   like: 'text-rose-500 bg-rose-50',
   comment: 'text-blue-500 bg-blue-50',
+  comment_like: 'text-rose-500 bg-rose-50',
+  reply: 'text-blue-500 bg-blue-50',
   follow: 'text-emerald-500 bg-emerald-50',
   points: 'text-amber-500 bg-amber-50',
   milestone: 'text-violet-500 bg-violet-50',

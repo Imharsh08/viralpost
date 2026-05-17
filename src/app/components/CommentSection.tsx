@@ -1,24 +1,30 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { MessageCircle, Send, Trash2, Loader2, Sparkles } from 'lucide-react';
+import { MessageCircle, Send, Trash2, Loader2, Sparkles, Heart, CornerDownRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { formatCount } from '@/lib/formatCount';
+
+interface CommentUser {
+  id: string;
+  username: string;
+  display_name: string;
+  avatar_url: string;
+  is_verified: boolean;
+}
 
 interface Comment {
   id: string;
   content: string;
   created_at: string;
   likes_count: number;
-  users: {
-    id: string;
-    username: string;
-    display_name: string;
-    avatar_url: string;
-    is_verified: boolean;
-  };
+  parent_comment_id: string | null;
+  is_liked?: boolean;
+  users: CommentUser;
+  replies?: Comment[];
 }
 
 interface CommentSectionProps {
@@ -51,6 +57,10 @@ export default function CommentSection({
   const [submitting, setSubmitting] = useState(false);
   const [text, setText] = useState('');
   const [count, setCount] = useState(commentCount);
+  // The id of the comment being replied to (null = no reply form open)
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replySubmitting, setReplySubmitting] = useState(false);
   const loadedRef = useRef(false);
 
   const authHeader = session ? `Bearer ${session.access_token}` : '';
@@ -60,7 +70,10 @@ export default function CommentSection({
     loadedRef.current = true;
     setLoading(true);
     try {
-      const res = await fetch(`/api/posts/${postId}/comments`);
+      const res = await fetch(`/api/posts/${postId}/comments`, {
+        // Auth lets the server fill in `is_liked` per comment
+        headers: session ? { Authorization: authHeader } : {},
+      });
       const data = await res.json();
       setComments(data.comments ?? []);
     } catch {
@@ -73,6 +86,12 @@ export default function CommentSection({
   const handleToggle = () => {
     if (!open) loadComments();
     onToggle();
+  };
+
+  const bumpCount = (delta: number) => {
+    const next = Math.max(0, count + delta);
+    setCount(next);
+    onCountChange?.(next);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,10 +107,8 @@ export default function CommentSection({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setComments((prev) => [...prev, data.comment]);
-      const newCount = count + 1;
-      setCount(newCount);
-      onCountChange?.(newCount);
+      setComments((prev) => [...prev, { ...data.comment, replies: [] }]);
+      bumpCount(1);
       setText('');
     } catch (err: any) {
       toast.error(err.message || 'Failed to post comment');
@@ -100,7 +117,33 @@ export default function CommentSection({
     }
   };
 
-  const handleDelete = async (commentId: string) => {
+  const handleReplySubmit = async (parentId: string) => {
+    if (!replyText.trim()) return;
+    if (!session) { toast.error('Sign in to reply'); return; }
+    setReplySubmitting(true);
+    try {
+      const res = await fetch(`/api/posts/${postId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+        body: JSON.stringify({ content: replyText, parent_comment_id: parentId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      // Append the new reply under its parent
+      setComments((prev) => prev.map((c) =>
+        c.id === parentId ? { ...c, replies: [...(c.replies ?? []), data.comment] } : c
+      ));
+      bumpCount(1);
+      setReplyText('');
+      setReplyingTo(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to post reply');
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
+  const handleDelete = async (commentId: string, parentId: string | null) => {
     try {
       const res = await fetch(`/api/posts/${postId}/comments`, {
         method: 'DELETE',
@@ -108,12 +151,73 @@ export default function CommentSection({
         body: JSON.stringify({ commentId }),
       });
       if (!res.ok) throw new Error();
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
-      const newCount = Math.max(0, count - 1);
-      setCount(newCount);
-      onCountChange?.(newCount);
+      if (parentId) {
+        // Reply deletion: remove just the one reply
+        setComments((prev) => prev.map((c) =>
+          c.id === parentId
+            ? { ...c, replies: (c.replies ?? []).filter((r) => r.id !== commentId) }
+            : c
+        ));
+        bumpCount(-1);
+      } else {
+        // Top-level deletion: also removes all replies (cascade in DB),
+        // adjust the count accordingly.
+        const removed = comments.find((c) => c.id === commentId);
+        const replyCount = removed?.replies?.length ?? 0;
+        setComments((prev) => prev.filter((c) => c.id !== commentId));
+        bumpCount(-(1 + replyCount));
+      }
     } catch {
       toast.error('Failed to delete comment');
+    }
+  };
+
+  const handleLikeToggle = async (commentId: string, parentId: string | null, currentlyLiked: boolean) => {
+    if (!session) { toast.error('Sign in to like comments'); return; }
+    const optimisticDelta = currentlyLiked ? -1 : 1;
+    // Optimistic UI: flip immediately
+    setComments((prev) => prev.map((c) => {
+      if (parentId == null && c.id === commentId) {
+        return { ...c, is_liked: !currentlyLiked, likes_count: Math.max(0, c.likes_count + optimisticDelta) };
+      }
+      if (parentId && c.id === parentId) {
+        return {
+          ...c,
+          replies: (c.replies ?? []).map((r) =>
+            r.id === commentId
+              ? { ...r, is_liked: !currentlyLiked, likes_count: Math.max(0, r.likes_count + optimisticDelta) }
+              : r
+          ),
+        };
+      }
+      return c;
+    }));
+
+    try {
+      const res = await fetch(`/api/comments/${commentId}/like`, {
+        method: currentlyLiked ? 'DELETE' : 'POST',
+        headers: { Authorization: authHeader },
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      // Rollback
+      setComments((prev) => prev.map((c) => {
+        if (parentId == null && c.id === commentId) {
+          return { ...c, is_liked: currentlyLiked, likes_count: Math.max(0, c.likes_count - optimisticDelta) };
+        }
+        if (parentId && c.id === parentId) {
+          return {
+            ...c,
+            replies: (c.replies ?? []).map((r) =>
+              r.id === commentId
+                ? { ...r, is_liked: currentlyLiked, likes_count: Math.max(0, r.likes_count - optimisticDelta) }
+                : r
+            ),
+          };
+        }
+        return c;
+      }));
+      toast.error('Failed to update like');
     }
   };
 
@@ -131,7 +235,7 @@ export default function CommentSection({
         }`}
       >
         <MessageCircle size={14} className={open ? 'fill-primary/20' : ''} />
-        <span className="font-mono tabular-nums">{count.toLocaleString()}</span>
+        <span className="font-mono tabular-nums">{formatCount(count)}</span>
       </button>
     );
   }
@@ -195,38 +299,200 @@ export default function CommentSection({
       ) : (
         <div className="flex flex-col gap-3">
           {comments.map((comment) => (
-            <div key={comment.id} className="flex gap-2.5 group/comment">
-              <div className="shrink-0">
-                {comment.users?.avatar_url ? (
-                  <AppImage src={comment.users.avatar_url} alt={comment.users.display_name} width={32} height={32}
-                    className="w-8 h-8 rounded-full object-cover border border-border" />
-                ) : (
-                  <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-                    {comment.users?.display_name?.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-xs font-bold text-foreground">{comment.users?.display_name}</span>
-                  {comment.users?.is_verified && <Sparkles size={10} className="text-primary fill-primary/30" />}
-                  <span className="text-xs text-muted-foreground">·</span>
-                  <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
-                  {user?.id === comment.users?.id && (
-                    <button
-                      onClick={() => handleDelete(comment.id)}
-                      className="ml-auto opacity-0 group-hover/comment:opacity-100 transition-opacity text-muted-foreground hover:text-negative p-0.5 rounded"
-                    >
-                      <Trash2 size={11} />
-                    </button>
-                  )}
-                </div>
-                <p className="text-sm text-foreground/90 leading-relaxed break-words">{comment.content}</p>
+            <CommentRow
+              key={comment.id}
+              comment={comment}
+              parentId={null}
+              currentUserId={user?.id}
+              isReplying={replyingTo === comment.id}
+              replyText={replyText}
+              setReplyText={setReplyText}
+              replySubmitting={replySubmitting}
+              onStartReply={() => {
+                if (!session) { toast.error('Sign in to reply'); return; }
+                setReplyingTo(comment.id);
+                setReplyText('');
+              }}
+              onCancelReply={() => { setReplyingTo(null); setReplyText(''); }}
+              onSubmitReply={() => handleReplySubmit(comment.id)}
+              onDelete={() => handleDelete(comment.id, null)}
+              onLikeToggle={() => handleLikeToggle(comment.id, null, !!comment.is_liked)}
+              onReplyDelete={(replyId) => handleDelete(replyId, comment.id)}
+              onReplyLikeToggle={(replyId, liked) => handleLikeToggle(replyId, comment.id, liked)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── A single top-level comment + its replies ── */
+
+interface CommentRowProps {
+  comment: Comment;
+  parentId: string | null;
+  currentUserId: string | undefined;
+  isReplying: boolean;
+  replyText: string;
+  setReplyText: (s: string) => void;
+  replySubmitting: boolean;
+  onStartReply: () => void;
+  onCancelReply: () => void;
+  onSubmitReply: () => void;
+  onDelete: () => void;
+  onLikeToggle: () => void;
+  onReplyDelete?: (replyId: string) => void;
+  onReplyLikeToggle?: (replyId: string, liked: boolean) => void;
+}
+
+function CommentRow({
+  comment, currentUserId,
+  isReplying, replyText, setReplyText, replySubmitting,
+  onStartReply, onCancelReply, onSubmitReply,
+  onDelete, onLikeToggle, onReplyDelete, onReplyLikeToggle,
+}: CommentRowProps) {
+  return (
+    <div className="flex flex-col">
+      <CommentBody
+        comment={comment}
+        currentUserId={currentUserId}
+        canReply
+        onReply={onStartReply}
+        onDelete={onDelete}
+        onLikeToggle={onLikeToggle}
+      />
+
+      {/* Reply composer (inline) */}
+      {isReplying && (
+        <div className="ml-10 mt-2 flex gap-2">
+          <textarea
+            value={replyText}
+            autoFocus
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (replyText.trim() && !replySubmitting) onSubmitReply();
+              }
+              if (e.key === 'Escape') onCancelReply();
+            }}
+            placeholder={`Reply to @${comment.users?.username ?? 'them'}…`}
+            rows={1}
+            maxLength={500}
+            className="input-field flex-1 resize-none py-2 text-sm min-h-[36px]"
+          />
+          <div className="flex gap-1 self-end">
+            <button
+              onClick={onSubmitReply}
+              disabled={replySubmitting || !replyText.trim()}
+              className="btn-primary px-3 py-1.5 text-xs disabled:opacity-50"
+            >
+              {replySubmitting ? <Loader2 size={12} className="animate-spin" /> : 'Reply'}
+            </button>
+            <button
+              onClick={onCancelReply}
+              className="btn-ghost px-3 py-1.5 text-xs text-muted-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Replies — indented 1 level (PRD §6.8 CM-02) */}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="ml-10 mt-3 flex flex-col gap-3 border-l border-border pl-3">
+          {comment.replies.map((reply) => (
+            <div key={reply.id} className="flex gap-1.5">
+              <CornerDownRight size={11} className="text-muted-foreground mt-2 shrink-0" />
+              <div className="flex-1">
+                <CommentBody
+                  comment={reply}
+                  currentUserId={currentUserId}
+                  canReply={false}
+                  onDelete={() => onReplyDelete?.(reply.id)}
+                  onLikeToggle={() => onReplyLikeToggle?.(reply.id, !!reply.is_liked)}
+                />
               </div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── The actual rendered card for one comment (no nesting logic) ── */
+
+interface CommentBodyProps {
+  comment: Comment;
+  currentUserId: string | undefined;
+  canReply: boolean;
+  onReply?: () => void;
+  onDelete: () => void;
+  onLikeToggle: () => void;
+}
+
+function CommentBody({ comment, currentUserId, canReply, onReply, onDelete, onLikeToggle }: CommentBodyProps) {
+  return (
+    <div className="flex gap-2.5 group/comment">
+      <div className="shrink-0">
+        {comment.users?.avatar_url ? (
+          <AppImage src={comment.users.avatar_url} alt={comment.users.display_name} width={32} height={32}
+            className="w-8 h-8 rounded-full object-cover border border-border" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+            {comment.users?.display_name?.slice(0, 2).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <Link
+            href={`/u/${comment.users?.username ?? ''}`}
+            className="text-xs font-bold text-foreground hover:text-primary transition-colors"
+          >
+            {comment.users?.display_name}
+          </Link>
+          {comment.users?.is_verified && <Sparkles size={10} className="text-primary fill-primary/30" />}
+          <span className="text-xs text-muted-foreground">·</span>
+          <span className="text-xs text-muted-foreground">{timeAgo(comment.created_at)}</span>
+          {currentUserId === comment.users?.id && (
+            <button
+              onClick={onDelete}
+              className="ml-auto opacity-0 group-hover/comment:opacity-100 transition-opacity text-muted-foreground hover:text-negative p-0.5 rounded"
+              aria-label="Delete comment"
+            >
+              <Trash2 size={11} />
+            </button>
+          )}
+        </div>
+        <p className="text-sm text-foreground/90 leading-relaxed break-words">{comment.content}</p>
+
+        {/* Action row: like + reply */}
+        <div className="flex items-center gap-1 mt-1">
+          <button
+            onClick={onLikeToggle}
+            className={`flex items-center gap-1 px-1.5 py-1 rounded-md text-xs font-semibold transition-all duration-150 active:scale-95 ${
+              comment.is_liked
+                ? 'text-negative bg-negative-bg'
+                : 'text-muted-foreground hover:text-negative hover:bg-negative-bg'
+            }`}
+          >
+            <Heart size={11} className={comment.is_liked ? 'fill-negative' : ''} />
+            <span className="font-mono tabular-nums">{(comment.likes_count ?? 0) > 0 ? formatCount(comment.likes_count) : ''}</span>
+          </button>
+          {canReply && onReply && (
+            <button
+              onClick={onReply}
+              className="px-1.5 py-1 rounded-md text-xs font-semibold text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
+            >
+              Reply
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

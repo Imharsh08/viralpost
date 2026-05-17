@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Hash, TrendingUp, Clock, Loader2, Heart, MessageCircle, Eye, ArrowLeft } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
+import { formatCount } from '@/lib/formatCount';
 
 interface TagPost {
   id: string;
@@ -75,7 +76,7 @@ export default function TagClient({ tagName }: { tagName: string }) {
               #{tagName}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {loading ? 'Loading…' : `${posts.length.toLocaleString()} ${posts.length === 1 ? 'post' : 'posts'} with this tag`}
+              {loading ? 'Loading…' : `${formatCount(posts.length)} ${posts.length === 1 ? 'post' : 'posts'} with this tag`}
             </p>
           </div>
         </div>
@@ -163,15 +164,15 @@ export default function TagClient({ tagName }: { tagName: string }) {
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Heart size={12} />
-                    <span className="font-mono tabular-nums">{post.likes_count.toLocaleString()}</span>
+                    <span className="font-mono tabular-nums">{formatCount(post.likes_count)}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <MessageCircle size={12} />
-                    <span className="font-mono tabular-nums">{post.comments_count.toLocaleString()}</span>
+                    <span className="font-mono tabular-nums">{formatCount(post.comments_count)}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <Eye size={12} />
-                    <span className="font-mono tabular-nums">{post.views_count.toLocaleString()}</span>
+                    <span className="font-mono tabular-nums">{formatCount(post.views_count)}</span>
                   </span>
                 </div>
               </Link>

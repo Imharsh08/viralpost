@@ -10,6 +10,7 @@ import type { MockPost } from '@/lib/mockData';
 import CommentSection from './CommentSection';
 import FollowButton from './FollowButton';
 import { usePostRealtime } from '@/lib/hooks/usePostRealtime';
+import { formatCount } from '@/lib/formatCount';
 
 interface PostCardProps {
   post: MockPost;
@@ -196,7 +197,7 @@ export default function PostCard({ post }: PostCardProps) {
               }`}
             >
               <Heart size={14} className={liked ? 'fill-negative text-negative' : ''} />
-              <span className="font-mono tabular-nums">{likeCount.toLocaleString()}</span>
+              <span className="font-mono tabular-nums">{formatCount(likeCount)}</span>
             </button>
 
             {/* Comment toggle */}
@@ -216,7 +217,7 @@ export default function PostCard({ post }: PostCardProps) {
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground hover:text-positive hover:bg-positive-bg transition-all duration-150 active:scale-95"
               >
                 <Share2 size={14} />
-                <span className="font-mono tabular-nums">{post.shares.toLocaleString()}</span>
+                <span className="font-mono tabular-nums">{formatCount(post.shares)}</span>
               </button>
               {showShareMenu && (
                 <div className="absolute bottom-full left-0 mb-2 bg-card border border-border rounded-xl shadow-modal p-1 min-w-[140px] animate-scale-in z-10">
@@ -232,7 +233,7 @@ export default function PostCard({ post }: PostCardProps) {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Eye size={12} />
-              <span className="font-mono tabular-nums">{viewCount.toLocaleString()}</span>
+              <span className="font-mono tabular-nums">{formatCount(viewCount)}</span>
             </div>
             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 border border-amber-100">
               <Zap size={10} className="text-amber-500 fill-amber-400" />

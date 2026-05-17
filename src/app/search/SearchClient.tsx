@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
 import FollowButton from '@/app/components/FollowButton';
+import { formatCount } from '@/lib/formatCount';
 
 interface SearchPost {
   id: string;
@@ -242,7 +243,7 @@ function CreatorRow({ creator }: { creator: SearchCreator }) {
           {creator.is_verified && <BadgeCheck size={13} className="text-primary fill-primary/20 shrink-0" />}
         </div>
         <p className="text-xs text-muted-foreground truncate">
-          @{creator.username} · {(creator.follower_count ?? 0).toLocaleString()} followers
+          @{creator.username} · {formatCount(creator.follower_count)} followers
         </p>
         {creator.bio && <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{creator.bio}</p>}
       </Link>
@@ -279,9 +280,9 @@ function PostResult({ post }: { post: SearchPost }) {
       )}
       <p className="text-sm text-muted-foreground line-clamp-2 mb-2 leading-relaxed">{post.excerpt}</p>
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1"><Heart size={11} /><span className="font-mono">{post.likes_count.toLocaleString()}</span></span>
-        <span className="flex items-center gap-1"><MessageCircle size={11} /><span className="font-mono">{post.comments_count.toLocaleString()}</span></span>
-        <span className="flex items-center gap-1"><Eye size={11} /><span className="font-mono">{post.views_count.toLocaleString()}</span></span>
+        <span className="flex items-center gap-1"><Heart size={11} /><span className="font-mono">{formatCount(post.likes_count)}</span></span>
+        <span className="flex items-center gap-1"><MessageCircle size={11} /><span className="font-mono">{formatCount(post.comments_count)}</span></span>
+        <span className="flex items-center gap-1"><Eye size={11} /><span className="font-mono">{formatCount(post.views_count)}</span></span>
       </div>
     </Link>
   );

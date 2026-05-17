@@ -6,6 +6,7 @@ import Link from 'next/link';
 import AppImage from '@/components/ui/AppImage';
 import { trendingTags, topCreators } from '@/lib/mockData';
 import FollowButton from './FollowButton';
+import { formatCount } from '@/lib/formatCount';
 
 export default function FeedSidebar() {
   return (
@@ -45,7 +46,7 @@ export default function FeedSidebar() {
                 </span>
               </div>
               <span className="text-xs text-muted-foreground font-mono tabular-nums">
-                {tag?.postCount?.toLocaleString()} posts
+                {formatCount(tag?.postCount)} posts
               </span>
             </Link>
           ))}
@@ -70,7 +71,7 @@ export default function FeedSidebar() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-foreground truncate">{creator?.displayName}</p>
                 <p className="text-xs text-muted-foreground font-mono tabular-nums">
-                  {creator?.weeklyViews?.toLocaleString()} views
+                  {formatCount(creator?.weeklyViews)} views
                 </p>
               </div>
               <FollowButton

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { formatCount } from '@/lib/formatCount';
 
 interface Post {
   id: string;
@@ -130,7 +131,7 @@ export default function AnalyticsClient() {
           value={stats?.totalViews ?? 0}
           iconColor="text-primary"
           bgColor="bg-primary/5"
-          sub={`~${avgViews.toLocaleString()} per post`}
+          sub={`~${formatCount(avgViews)} per post`}
         />
         <SummaryCard
           icon={Heart}
@@ -138,7 +139,7 @@ export default function AnalyticsClient() {
           value={stats?.totalLikes ?? 0}
           iconColor="text-negative"
           bgColor="bg-negative-bg"
-          sub={`~${avgLikes.toLocaleString()} per post`}
+          sub={`~${formatCount(avgLikes)} per post`}
         />
         <SummaryCard
           icon={Users}
@@ -154,7 +155,7 @@ export default function AnalyticsClient() {
           value={balance}
           iconColor="text-amber-500"
           bgColor="bg-amber-50"
-          sub={`+${(pointsSummary?.total_this_week ?? 0).toLocaleString()} this week`}
+          sub={`+${formatCount(pointsSummary?.total_this_week ?? 0)} this week`}
           highlight
         />
       </div>
@@ -162,7 +163,7 @@ export default function AnalyticsClient() {
       {/* Secondary metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
         <MetricCard label="Engagement Rate" value={`${engagementRate}%`} desc="likes / views" />
-        <MetricCard label="Avg. Views / Post" value={avgViews.toLocaleString()} desc="across all posts" />
+        <MetricCard label="Avg. Views / Post" value={formatCount(avgViews)} desc="across all posts" />
         <MetricCard label="Published Posts" value={(stats?.totalPublished ?? 0).toString()} desc={`${stats?.totalDrafts ?? 0} drafts saved`} />
       </div>
 
@@ -177,9 +178,9 @@ export default function AnalyticsClient() {
             {topPost.title || '(Untitled)'}
           </h3>
           <div className="flex items-center gap-5 text-xs text-muted-foreground flex-wrap">
-            <span className="flex items-center gap-1"><Eye size={11} />{(topPost.views_count ?? 0).toLocaleString()} views</span>
-            <span className="flex items-center gap-1"><Heart size={11} />{(topPost.likes_count ?? 0).toLocaleString()} likes</span>
-            <span className="flex items-center gap-1"><MessageCircle size={11} />{(topPost.comments_count ?? 0).toLocaleString()} comments</span>
+            <span className="flex items-center gap-1"><Eye size={11} />{formatCount(topPost.views_count)} views</span>
+            <span className="flex items-center gap-1"><Heart size={11} />{formatCount(topPost.likes_count)} likes</span>
+            <span className="flex items-center gap-1"><MessageCircle size={11} />{formatCount(topPost.comments_count)} comments</span>
             <span className="flex items-center gap-1 text-amber-600 font-semibold">
               <Zap size={11} className="fill-amber-400" />+{topPost.points_earned ?? 0} pts
             </span>
@@ -257,17 +258,17 @@ export default function AnalyticsClient() {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <span className="font-mono tabular-nums text-xs font-semibold text-foreground">
-                          {(post.views_count ?? 0).toLocaleString()}
+                          {formatCount(post.views_count)}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
                         <span className="font-mono tabular-nums text-xs text-negative font-semibold">
-                          {(post.likes_count ?? 0).toLocaleString()}
+                          {formatCount(post.likes_count)}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
                         <span className="font-mono tabular-nums text-xs text-foreground">
-                          {(post.comments_count ?? 0).toLocaleString()}
+                          {formatCount(post.comments_count)}
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">

@@ -6,6 +6,7 @@ import {
   Trophy, Zap, Flame, BarChart2, Loader2, BadgeCheck, Eye, Heart, MessageCircle, Crown, Star, Award,
 } from 'lucide-react';
 import AppImage from '@/components/ui/AppImage';
+import { formatCount } from '@/lib/formatCount';
 
 type Board = 'earners' | 'viral' | 'engaging';
 type Window = 'week' | 'all';
@@ -47,14 +48,10 @@ interface EngagingRow {
   engagement_rate: number | string | null;
 }
 
-// Defensive number formatter — Supabase RPCs can return null or string for
-// some numeric/bigint columns, and uninitialized counter columns can be null
-// on legacy rows. Coerce to number safely.
-function fmt(v: number | string | null | undefined): string {
-  const n = typeof v === 'number' ? v : v == null ? 0 : Number(v);
-  if (!Number.isFinite(n)) return '0';
-  return n.toLocaleString();
-}
+// Defensive count formatter — Supabase RPCs can return null or string for
+// some numeric/bigint columns. formatCount handles those plus the K/M/B
+// abbreviation expected across the app.
+const fmt = formatCount;
 
 const BOARDS: { id: Board; label: string; icon: any; supportsWindow: boolean }[] = [
   { id: 'earners', label: 'Top Earners', icon: Zap, supportsWindow: true },
