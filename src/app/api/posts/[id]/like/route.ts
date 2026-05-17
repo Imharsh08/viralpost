@@ -19,7 +19,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   const userId = getUserId(authHeader);
   if (!userId) return Response.json({ is_liked: false });
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  // Forward the auth header — after migration 013 the SELECT policy on
+  // post_likes is `user_id = auth.uid()`, so without this header the row
+  // is filtered out and is_liked stays false forever.
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
   const { data } = await supabase
     .from('post_likes')
     .select('id')
