@@ -32,16 +32,35 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   // Fetch ALL comments for the post in one round-trip (top-level + replies),
   // then group on the server so the client can render the tree without
   // a second request. PRD §6.8 specifies 1-level nesting.
-  const { data: all, error } = await supabase
-    .from('comments')
-    .select(`
-      id, content, created_at, likes_count, parent_comment_id,
-      users!inner(id, username, display_name, avatar_url, is_verified)
-    `)
-    .eq('post_id', params.id)
-    .order('created_at', { ascending: true });
+  // Use a SECURITY DEFINER RPC (migration 014) to read comments. This
+  // bypasses RLS so the thread is always visible regardless of any future
+  // policy change — comments are public-by-design (Instagram-style).
+  const { data: flat, error } = await supabase.rpc('get_post_comments', {
+    p_post_id: params.id,
+  });
 
-  if (error) return Response.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error('[comments GET] RPC error:', error);
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+
+  // Reshape the flat RPC output into the nested {users} shape the client
+  // already consumes, so no client changes are needed.
+  const all = (flat ?? []).map((r: any) => ({
+    id: r.id,
+    content: r.content,
+    created_at: r.created_at,
+    likes_count: r.likes_count,
+    parent_comment_id: r.parent_comment_id,
+    users: {
+      id: r.author_id,
+      username: r.author_username,
+      display_name: r.author_display_name,
+      avatar_url: r.author_avatar_url,
+      is_verified: r.author_is_verified,
+    },
+  }));
+  console.log(`[comments GET] post=${params.id} viewer=${viewerId ?? 'anon'} rows=${all.length}`);
 
   // If signed in, look up which comments the viewer has liked so the UI
   // can render the heart filled without a per-comment round-trip. RLS on
@@ -74,7 +93,19 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
   const tree = topLevel.map((c) => ({ ...c, replies: byParent.get(c.id) ?? [] }));
 
-  return Response.json({ comments: tree });
+  // Debug headers help diagnose RLS / migration issues from the browser
+  // network panel without server log access. Safe to leave on — they
+  // contain no PII (just counts + auth presence).
+  return Response.json(
+    { comments: tree },
+    {
+      headers: {
+        'X-Comments-Total': String(all?.length ?? 0),
+        'X-Comments-TopLevel': String(topLevel.length),
+        'X-Comments-Viewer': viewerId ? 'auth' : 'anon',
+      },
+    },
+  );
 }
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
