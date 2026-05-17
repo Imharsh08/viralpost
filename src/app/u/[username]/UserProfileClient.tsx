@@ -3,11 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, BadgeCheck, Calendar, Eye, Heart, MessageCircle, Loader2,
-  Zap, Sparkles, Flame, FileText, Users,
+  ArrowLeft, BadgeCheck, Calendar, Eye, Heart, MessageCircle,
+  Zap, Sparkles, Flame, FileText,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
+import Skeleton from '@/components/ui/Skeleton';
 import FollowButton from '@/app/components/FollowButton';
 import { useUserRealtime } from '@/lib/hooks/useUserRealtime';
 import { formatCount } from '@/lib/formatCount';
@@ -88,11 +89,7 @@ export default function UserProfileClient({ username }: { username: string }) {
   }, [username]);
 
   if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto py-16 flex justify-center">
-        <Loader2 size={28} className="animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <PublicProfileSkeleton />;
   }
 
   if (notFound || !profile) {
@@ -125,52 +122,48 @@ export default function UserProfileClient({ username }: { username: string }) {
 
       {/* Profile header */}
       <div className="card overflow-hidden mb-5">
-        <div className="h-24 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" />
-        <div className="px-5 sm:px-6 pb-5 -mt-12">
-          <div className="flex items-end justify-between flex-wrap gap-3">
+        <div className="h-20 sm:h-24 bg-gradient-to-r from-violet-400 via-fuchsia-400 to-amber-300" />
+        <div className="px-4 sm:px-6 pb-5 -mt-10 sm:-mt-12">
+          {/* Avatar + inline stats — Instagram-style on mobile so the
+              stat triplet doesn't push the action button off-screen.
+              At sm+ the action button moves back into a separate row. */}
+          <div className="flex items-end gap-3 sm:gap-5">
             {profile.avatar_url ? (
               <AppImage
                 src={profile.avatar_url}
                 alt={profile.display_name}
                 width={96}
                 height={96}
-                className="w-24 h-24 rounded-full object-cover border-4 border-card shadow-sm"
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover border-4 border-card shadow-sm shrink-0"
               />
             ) : (
-              <div className="w-24 h-24 rounded-full bg-primary/10 border-4 border-card flex items-center justify-center text-2xl font-bold text-primary shadow-sm">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-primary/10 border-4 border-card flex items-center justify-center text-xl sm:text-2xl font-bold text-primary shadow-sm shrink-0">
                 {initials}
               </div>
             )}
 
-            <div className="flex items-center gap-2 mb-1">
-              {isOwnProfile ? (
-                <Link href="/profile" className="btn-secondary">
-                  Edit Profile
-                </Link>
-              ) : (
-                <FollowButton
-                  targetUserId={profile.id}
-                  targetDisplayName={profile.display_name}
-                  variant="primary"
-                  onFollowChange={(_, newCount) => setFollowerCount(newCount)}
-                />
-              )}
+            {/* Inline 3-stat row beside the avatar */}
+            <div className="flex-1 grid grid-cols-3 gap-1 sm:gap-3 pb-1 sm:pb-2 min-w-0">
+              <CompactStat label="Posts" value={stats.post_count} />
+              <CompactStat label="Followers" value={liveFollowerCount} />
+              <CompactStat label="Following" value={profile.following_count ?? 0} />
             </div>
           </div>
 
+          {/* Name + handle */}
           <div className="mt-3">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <h1 className="text-2xl font-bold text-foreground">{profile.display_name}</h1>
-              {profile.is_verified && <BadgeCheck size={18} className="text-primary fill-primary/20" />}
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground break-words">{profile.display_name}</h1>
+              {profile.is_verified && <BadgeCheck size={18} className="text-primary fill-primary/20 shrink-0" />}
             </div>
-            <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            <p className="text-sm text-muted-foreground truncate">@{profile.username}</p>
 
             {profile.headline && (
-              <p className="text-sm font-semibold text-primary mt-2">{profile.headline}</p>
+              <p className="text-sm font-semibold text-primary mt-2 break-words">{profile.headline}</p>
             )}
 
             {profile.bio && (
-              <p className="text-sm text-foreground/90 mt-3 leading-relaxed whitespace-pre-wrap">
+              <p className="text-sm text-foreground/90 mt-2 leading-relaxed whitespace-pre-wrap break-words">
                 {profile.bio}
               </p>
             )}
@@ -189,19 +182,33 @@ export default function UserProfileClient({ username }: { username: string }) {
               </div>
             )}
 
-            <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground flex-wrap">
+            <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground flex-wrap">
               <span className="flex items-center gap-1">
-                <Calendar size={12} />
-                Member since {joinedDate(profile.created_at)}
+                <Eye size={11} />
+                {formatCount(stats.total_views)} views
+              </span>
+              <span className="flex items-center gap-1">
+                <Calendar size={11} />
+                Joined {joinedDate(profile.created_at)}
               </span>
             </div>
 
-            {/* Stat row */}
-            <div className="flex gap-6 mt-4 pt-4 border-t border-border">
-              <StatPill label="Posts" value={stats.post_count} icon={FileText} />
-              <StatPill label="Followers" value={liveFollowerCount} icon={Users} />
-              <StatPill label="Following" value={profile.following_count ?? 0} icon={Users} />
-              <StatPill label="Views" value={stats.total_views} icon={Eye} />
+            {/* Action row — full width on mobile so it's thumb-friendly */}
+            <div className="mt-4 pt-4 border-t border-border flex gap-2">
+              {isOwnProfile ? (
+                <Link href="/profile" className="btn-secondary flex-1 justify-center">
+                  Edit Profile
+                </Link>
+              ) : (
+                <div className="flex-1 [&>button]:w-full">
+                  <FollowButton
+                    targetUserId={profile.id}
+                    targetDisplayName={profile.display_name}
+                    variant="primary"
+                    onFollowChange={(_, newCount) => setFollowerCount(newCount)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -283,16 +290,58 @@ export default function UserProfileClient({ username }: { username: string }) {
   );
 }
 
-function StatPill({ label, value, icon: Icon }: { label: string; value: number; icon: any }) {
+/* Inline compact stat (value above label) — sits beside the avatar so
+   Posts / Followers / Following fit on one row even at 360px. */
+function CompactStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="flex flex-col">
-      <span className="text-xs text-muted-foreground flex items-center gap-1">
-        <Icon size={11} />
-        {label}
-      </span>
-      <span className="text-sm font-bold text-foreground font-mono tabular-nums">
+    <div className="flex flex-col items-center justify-center text-center min-w-0">
+      <span className="text-base sm:text-lg font-extrabold text-foreground font-mono tabular-nums leading-tight truncate max-w-full">
         {formatCount(value)}
       </span>
+      <span className="text-[11px] sm:text-xs text-muted-foreground leading-tight truncate max-w-full">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/* Skeleton shown while the profile loads — matches the final layout so
+   content arriving doesn't shift the page (no CLS). */
+function PublicProfileSkeleton() {
+  return (
+    <div className="max-w-3xl mx-auto">
+      <Skeleton className="h-4 w-24 mb-4 rounded" />
+      <div className="card overflow-hidden mb-5">
+        <Skeleton className="h-20 sm:h-24 w-full" />
+        <div className="px-4 sm:px-6 pb-5 -mt-10 sm:-mt-12">
+          <div className="flex items-end gap-3 sm:gap-5">
+            <Skeleton className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-4 border-card shrink-0" />
+            <div className="flex-1 grid grid-cols-3 gap-1 sm:gap-3 pb-1 sm:pb-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex flex-col items-center gap-1">
+                  <Skeleton className="h-5 w-10 rounded" />
+                  <Skeleton className="h-3 w-14 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
+            <Skeleton className="h-6 w-1/2 rounded" />
+            <Skeleton className="h-4 w-1/3 rounded" />
+            <Skeleton className="h-4 w-2/3 rounded mt-2" />
+            <Skeleton className="h-4 w-3/4 rounded" />
+          </div>
+          <div className="mt-4 pt-4 border-t border-border">
+            <Skeleton className="h-9 w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+      <Skeleton className="h-5 w-28 rounded mb-3" />
+      <div className="flex flex-col gap-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+        ))}
+      </div>
     </div>
   );
 }

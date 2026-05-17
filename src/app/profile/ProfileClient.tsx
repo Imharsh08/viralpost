@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
+import Skeleton from '@/components/ui/Skeleton';
 import { toast } from 'sonner';
 import FollowButton from '@/app/components/FollowButton';
 import { useUserRealtime } from '@/lib/hooks/useUserRealtime';
@@ -167,17 +168,18 @@ export default function ProfileClient() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Profile header card */}
-      <div className="card p-6 mb-6">
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
+      {/* Profile header card. p-4 on mobile (was p-6) saves 32px of width
+          and matches the public profile's compact look. */}
+      <div className="card p-4 sm:p-6 mb-6">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
             {/* Avatar */}
             <div className="relative shrink-0">
               {avatarUrl ? (
                 <AppImage src={avatarUrl} alt={displayName} width={80} height={80}
-                  className="w-20 h-20 rounded-2xl object-cover border-2 border-border" />
+                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl object-cover border-2 border-border" />
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-2xl font-extrabold text-primary">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-primary/10 border-2 border-primary/20 flex items-center justify-center text-xl sm:text-2xl font-extrabold text-primary">
                   {initials}
                 </div>
               )}
@@ -189,8 +191,8 @@ export default function ProfileClient() {
             </div>
 
             {/* Name / username / bio */}
-            <div>
-              <h1 className="text-xl font-extrabold text-foreground">{displayName}</h1>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-lg sm:text-xl font-extrabold text-foreground break-words">{displayName}</h1>
               {username && <p className="text-sm text-muted-foreground">@{username}</p>}
               {profile?.headline && (
                 <p className="text-sm font-semibold text-primary mt-1 max-w-sm">{profile.headline}</p>
@@ -220,8 +222,9 @@ export default function ProfileClient() {
             </div>
           </div>
 
-          {/* Edit / actions */}
-          <div className="flex items-center gap-2">
+          {/* Edit / actions — full width on mobile so both buttons fit
+              cleanly side-by-side instead of wrapping awkwardly. */}
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => {
                 setEditForm({
@@ -233,12 +236,13 @@ export default function ProfileClient() {
                 });
                 setEditMode((m) => !m);
               }}
-              className={editMode ? 'btn-secondary text-sm px-4 py-2' : 'btn-ghost text-sm px-4 py-2'}
+              className={`${editMode ? 'btn-secondary' : 'btn-ghost'} text-xs sm:text-sm px-3 sm:px-4 py-2 flex-1 sm:flex-none justify-center`}
             >
               <Edit3 size={14} />
-              {editMode ? 'Close editor' : 'Edit Profile'}
+              {editMode ? <span className="hidden sm:inline">Close editor</span> : 'Edit Profile'}
+              <span className={`sm:hidden ${editMode ? '' : 'hidden'}`}>Close</span>
             </button>
-            <Link href="/analytics" className="btn-secondary text-sm px-4 py-2">
+            <Link href="/analytics" className="btn-secondary text-xs sm:text-sm px-3 sm:px-4 py-2 flex-1 sm:flex-none justify-center">
               <BarChart2 size={14} />
               Analytics
             </Link>
@@ -246,7 +250,7 @@ export default function ProfileClient() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-6 pt-5 border-t border-border">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mt-5 sm:mt-6 pt-4 sm:pt-5 border-t border-border">
           <StatPill icon={Globe} label="Published" value={stats?.totalPublished ?? 0} color="text-primary" />
           <StatPill icon={Eye} label="Total Views" value={stats?.totalViews ?? 0} color="text-primary" />
           <StatPill icon={Heart} label="Total Likes" value={stats?.totalLikes ?? 0} color="text-negative" />
@@ -621,19 +625,34 @@ function PostList({
 
 function ProfileSkeleton() {
   return (
-    <div className="max-w-3xl mx-auto animate-pulse">
-      <div className="card p-6 mb-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-20 h-20 rounded-2xl bg-muted shrink-0" />
-          <div className="flex-1">
-            <div className="h-5 bg-muted rounded w-40 mb-2" />
-            <div className="h-3 bg-muted rounded w-24 mb-2" />
-            <div className="h-3 bg-muted rounded w-64" />
+    <div className="max-w-3xl mx-auto">
+      {/* Match the real profile card layout so content swap-in doesn't shift */}
+      <div className="card p-4 sm:p-6 mb-6">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Skeleton className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shrink-0" />
+            <div className="flex flex-col gap-1.5">
+              <Skeleton className="h-5 w-32 sm:w-40 rounded" />
+              <Skeleton className="h-3 w-20 rounded" />
+              <Skeleton className="h-3 w-48 sm:w-64 rounded" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-8 w-24 rounded-xl" />
+            <Skeleton className="h-8 w-24 rounded-xl" />
           </div>
         </div>
-        <div className="grid grid-cols-5 gap-3 pt-5 border-t border-border">
-          {[1, 2, 3, 4, 5].map((i) => <div key={i} className="h-16 bg-muted rounded-xl" />)}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mt-6 pt-5 border-t border-border">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-14 sm:h-16 rounded-xl" />
+          ))}
         </div>
+      </div>
+      <Skeleton className="h-9 w-48 rounded-xl mb-5" />
+      <div className="flex flex-col gap-3">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+        ))}
       </div>
     </div>
   );
