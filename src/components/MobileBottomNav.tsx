@@ -40,15 +40,14 @@ export default function MobileBottomNav() {
   const avatarUrl = user?.user_metadata?.avatar_url ?? '';
 
   return (
-    <>
-      {/* Spacer so page content can't hide behind the fixed bar */}
-      <div className="md:hidden h-16" aria-hidden />
-
-      <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-md border-t border-border"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
-        aria-label="Primary navigation"
-      >
+    // The bottom-nav clearance for page content is handled by the
+    // `pb-app-shell` utility on <main> in AppLayout — no in-component
+    // spacer needed here.
+    <nav
+      className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background/95 backdrop-blur-md border-t border-border"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0px)' }}
+      aria-label="Primary navigation"
+    >
         <ul className="flex items-stretch justify-around h-14 px-1">
           <TabItem
             href="/"
@@ -85,9 +84,8 @@ export default function MobileBottomNav() {
             active={pathname?.startsWith('/profile') ?? false}
             avatarUrl={avatarUrl}
           />
-        </ul>
-      </nav>
-    </>
+      </ul>
+    </nav>
   );
 }
 

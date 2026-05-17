@@ -85,6 +85,14 @@
     display: none;
   }
 
+  /* Bottom padding that clears the fixed mobile bottom nav plus the iOS
+     home-indicator safe area. Used on the main scroll container so its
+     last child isn't hidden under the nav.  56px = h-14 (bottom nav).
+     md:pb-6 in the markup overrides this on desktop (no bottom nav there). */
+  .pb-app-shell {
+    padding-bottom: calc(56px + max(env(safe-area-inset-bottom), 0.5rem));
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.2s ease-in-out;
   }

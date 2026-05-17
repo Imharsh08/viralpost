@@ -126,8 +126,20 @@ export default function PostCard({ post }: PostCardProps) {
               >
                 {post.author.displayName}
               </Link>
-              {post.isTrending && <span className="badge-trending"><TrendingUp size={9} />Trending</span>}
-              {post.isAiEnhanced && <span className="badge-ai"><Sparkles size={9} />AI Enhanced</span>}
+              {/* Badges shrink to icon-only on mobile so the author row
+                  stays single-line. Full label returns at sm+ widths. */}
+              {post.isTrending && (
+                <span className="badge-trending" title="Trending">
+                  <TrendingUp size={9} />
+                  <span className="hidden sm:inline">Trending</span>
+                </span>
+              )}
+              {post.isAiEnhanced && (
+                <span className="badge-ai" title="AI Enhanced">
+                  <Sparkles size={9} />
+                  <span className="hidden sm:inline">AI Enhanced</span>
+                </span>
+              )}
               {!isMock && post.author.id && (
                 <FollowButton
                   targetUserId={post.author.id}

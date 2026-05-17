@@ -47,27 +47,32 @@ export default function FeedHeader() {
   ];
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="mb-4 sm:mb-6">
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Discover Posts</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h1 className="text-xl sm:text-2xl font-bold text-foreground">Discover Posts</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             Content from creators earning from their writing
           </p>
         </div>
       </div>
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+      {/* Stats strip:
+          - on mobile we use a 3-col grid so all three cards fit on a single
+            row without sideways scroll, and labels shrink to xs/no-padding
+          - on sm+ we restore the horizontal-scroll chip layout */}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:gap-3 sm:overflow-x-auto scrollbar-hide pb-1">
         {statItems.map((stat) => (
           <div
             key={stat.id}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border shrink-0"
+            className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-card border border-border min-w-0 sm:shrink-0"
           >
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${stat.color}`}>
-              <stat.icon size={14} />
+            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center shrink-0 ${stat.color}`}>
+              <stat.icon size={12} className="sm:hidden" />
+              <stat.icon size={14} className="hidden sm:block" />
             </div>
-            <div>
-              <p className="text-xs text-muted-foreground leading-none">{stat.label}</p>
-              <p className="text-sm font-bold text-foreground font-mono tabular-nums mt-0.5">
+            <div className="min-w-0">
+              <p className="text-[10px] sm:text-xs text-muted-foreground leading-none truncate">{stat.label}</p>
+              <p className="text-xs sm:text-sm font-bold text-foreground font-mono tabular-nums mt-0.5 truncate">
                 {stat.value}
               </p>
             </div>

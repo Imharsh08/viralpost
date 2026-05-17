@@ -9,13 +9,23 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
+    <div
+      className="
+        min-h-screen md:min-h-screen
+        bg-background overflow-x-hidden
+      "
+      // dvh on mobile excludes the collapsible browser URL bar so the
+      // bottom nav doesn't jump up/down as you scroll. Desktop keeps
+      // min-h-screen behavior (vh-equivalent).
+      style={{ minHeight: '100dvh' }}
+    >
       <Topbar />
-      {/* min-w-0 on the flex/main containers stops a runaway child (a
-          long URL, a wide image, etc.) from forcing horizontal scroll
-          on phones. The page wrapper is already overflow-x-hidden as a
-          safety net. */}
-      <main className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-8 xl:px-10 2xl:px-16 py-4 sm:py-6 min-w-0">
+      {/* main content
+          - min-w-0 lets long children (URLs, wide images) shrink
+            instead of forcing horizontal scroll
+          - The pb-app-shell utility below adds bottom-nav clearance
+            on mobile only (md:pb-6 resets to normal padding on desktop) */}
+      <main className="max-w-screen-2xl mx-auto px-3 sm:px-4 lg:px-8 xl:px-10 2xl:px-16 py-4 sm:py-6 min-w-0 pb-app-shell md:pb-6">
         {children}
       </main>
       {/* Errors inside the realtime-subscribed bottom nav shouldn't kill
