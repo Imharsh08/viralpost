@@ -18,7 +18,21 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   const authHeader = request.headers.get('Authorization') ?? '';
   const viewerId = authHeader ? getUserId(authHeader) : null;
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  // Anonymous viewers see counts only. The comment thread itself is gated
+  // to authenticated users (privacy + spam-protection). Counts continue
+  // to be served via /api/posts/[id] regardless.
+  if (!viewerId) {
+    return Response.json(
+      { error: 'Sign in to view comments', comments: [] },
+      { status: 401 },
+    );
+  }
+
+  // Forward the auth header so the RLS policy on `comments` (and the
+  // own-rows policy on `comment_likes`) resolves auth.uid() correctly.
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
 
   // Fetch ALL comments for the post in one round-trip (top-level + replies),
   // then group on the server so the client can render the tree without
@@ -34,10 +48,13 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  // If signed in, look up which comments the viewer has liked so the UI
-  // can render the heart filled without a per-comment round-trip.
+  // Look up which comments the viewer has liked so the UI can render the
+  // heart filled without a per-comment round-trip. RLS on comment_likes
+  // (migration 013) only returns rows where user_id = auth.uid(), so this
+  // query naturally returns only the viewer's own likes even without the
+  // explicit .eq('user_id') filter — but keep it for clarity + index use.
   let likedIds = new Set<string>();
-  if (viewerId && (all?.length ?? 0) > 0) {
+  if ((all?.length ?? 0) > 0) {
     const { data: likes } = await supabase
       .from('comment_likes')
       .select('comment_id')

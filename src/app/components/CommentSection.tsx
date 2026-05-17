@@ -61,6 +61,9 @@ export default function CommentSection({
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replySubmitting, setReplySubmitting] = useState(false);
+  // True when the server returned 401 — viewer must sign in before the
+  // comment thread is loaded. Counts stay visible regardless.
+  const [gated, setGated] = useState(false);
   const loadedRef = useRef(false);
 
   const authHeader = session ? `Bearer ${session.access_token}` : '';
@@ -71,11 +74,22 @@ export default function CommentSection({
     setLoading(true);
     try {
       const res = await fetch(`/api/posts/${postId}/comments`, {
-        // Auth lets the server fill in `is_liked` per comment
+        // Auth lets the server fill in `is_liked` per comment AND is now
+        // required for the server to return any comments at all.
         headers: session ? { Authorization: authHeader } : {},
       });
+      if (res.status === 401) {
+        // Anonymous viewer — show sign-in CTA in place of the thread.
+        // We DON'T reset loadedRef here so the panel stays in gated state
+        // until the page reloads (after sign-in). Once they refresh, the
+        // session is present and the thread loads.
+        setGated(true);
+        setComments([]);
+        return;
+      }
       const data = await res.json();
       setComments(data.comments ?? []);
+      setGated(false);
     } catch {
       toast.error('Failed to load comments');
     } finally {
@@ -242,6 +256,36 @@ export default function CommentSection({
 
   // Panel-only mode (renders below the engagement row)
   if (!open) return null;
+
+  // Anonymous / gated state: the comments list is private to signed-in
+  // viewers. Show a single CTA panel — no composer, no skeleton, no list.
+  // The count badge on the toggle button stays accurate because it comes
+  // from the `commentCount` prop, not from list length.
+  if (!session || gated) {
+    return (
+      <div className="mt-3 pt-3 border-t border-border">
+        <div className="flex flex-col items-center text-center py-6 px-4 rounded-xl bg-muted/40 border border-dashed border-border">
+          <div className="w-10 h-10 rounded-2xl bg-secondary flex items-center justify-center mb-2.5">
+            <MessageCircle size={18} className="text-primary" />
+          </div>
+          <p className="text-sm font-bold text-foreground mb-1">
+            {count > 0
+              ? `Sign in to see what ${count.toLocaleString()} ${count === 1 ? 'person is' : 'people are'} saying`
+              : 'Sign in to join the conversation'}
+          </p>
+          <p className="text-xs text-muted-foreground mb-3 max-w-xs">
+            Comments are visible to signed-in members only.
+          </p>
+          <Link
+            href="/sign-up-login-screen"
+            className="btn-primary text-sm px-4 py-2"
+          >
+            Sign in to view
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 pt-3 border-t border-border">
