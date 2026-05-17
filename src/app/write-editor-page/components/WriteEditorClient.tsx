@@ -18,6 +18,10 @@ export type EditorMode = 'draft' | 'ai-loading' | 'ai-result' | 'publishing';
 export interface AiResult {
   enhanced_text: string;
   hashtags: string[];
+  /** True when the server fell back to the rule-based mock because no
+      ANTHROPIC_API_KEY is set or Claude returned invalid JSON. The UI
+      uses this to warn the user that they didn't get the real rewrite. */
+  mock?: boolean;
 }
 
 export default function WriteEditorClient() {
@@ -147,7 +151,16 @@ export default function WriteEditorClient() {
       setSelectedHashtags(result.hashtags);
       setActiveContent('enhanced');
       setMode('ai-result');
-      toast.success('AI enhancement complete! Review and publish when ready.');
+      // If the server fell back to the mock, warn the user — they probably
+      // expected the real Claude rewrite and the output will look basic.
+      if (result.mock) {
+        toast.warning(
+          'AI service unavailable — used a basic format instead. Try again in a moment.',
+          { duration: 6000 },
+        );
+      } else {
+        toast.success('AI enhancement complete! Review and publish when ready.');
+      }
     } catch {
       setMode('draft');
       toast.error('Enhancement failed. Please try again.');

@@ -112,6 +112,13 @@ HARD RULES
 - Max 300 words. No hashtags inside the body.
 - Output exactly 5 hashtags as a separate array. Mix 2–3 niche-specific tags (drawn from "${nichesLabel}") with 2–3 broader engagement tags. CamelCase, include the # symbol.
 
+PROHIBITED — these patterns make the post look unprofessional and template-y:
+- Do NOT repeat any line or paragraph. Each idea appears exactly once.
+- Do NOT include filler boilerplate like "Here's what most people get wrong about this:", "The 3 things that actually matter:", "Let me explain:", "But here's the thing:", or any other generic transition that adds no information.
+- Do NOT echo the original post verbatim followed by your rewrite — REPLACE the original, don't append.
+- Do NOT use ALL-CAPS for emphasis or fake-urgency phrases ("STOP scrolling", "Pay attention").
+- No leading emoji decoration on every paragraph.
+
 ${titleLine}ORIGINAL POST
 """
 ${text.trim()}
@@ -139,12 +146,10 @@ Output ONLY this JSON, nothing else:
     }
 
     // Mock fallback (no API key) — uses niche tags to flavor hashtags
-    const lines = text.trim().split('\n').filter((l: string) => l.trim());
-    const firstLine = lines[0] || text.substring(0, 80);
     const keywords = extractKeywords(text);
     const hashtags = generateHashtags(keywords, nicheTags);
-    const enhanced = buildSmartMock(text, firstLine);
-    return Response.json({ enhanced_text: enhanced, hashtags });
+    const enhanced = buildSmartMock(text);
+    return Response.json({ enhanced_text: enhanced, hashtags, mock: true });
   } catch (error) {
     console.error('AI enhance error:', error);
     return Response.json({ error: 'Enhancement failed' }, { status: 500 });
@@ -168,21 +173,40 @@ function generateHashtags(keywords: string[], nicheTags: string[]): string[] {
   return [...new Set([...niche, ...keywordTags, ...fallback])].slice(0, 5);
 }
 
-function buildSmartMock(original: string, hook: string): string {
-  const lines = original.trim().split('\n').filter((l) => l.trim());
-  const body = lines.slice(1).join('\n\n') || original;
+function buildSmartMock(original: string): string {
+  // Normalize the input so we never end up with the same line stitched in
+  // multiple times (the previous version did `hook` + body, which when the
+  // hook was already the first line of the body produced duplicate text).
+  // Also collapse Windows line endings and any run of 2+ blank lines.
+  const cleaned = original
+    .replace(/\r\n?/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 
-  return `${hook}
+  // Split on blank lines so we treat each paragraph as a unit, then dedupe
+  // adjacent identical paragraphs (a common copy-paste mistake) and trim
+  // each one.
+  const seen = new Set<string>();
+  const paragraphs: string[] = [];
+  for (const para of cleaned.split(/\n{2,}/)) {
+    const p = para.trim();
+    if (!p) continue;
+    if (seen.has(p)) continue;
+    seen.add(p);
+    paragraphs.push(p);
+  }
 
-Here's what most people get wrong about this:
+  // If the source is a single big block, keep it as one paragraph; if it's
+  // already structured, preserve the author's structure. We DO NOT inject
+  // a synthetic "Here's what most people get wrong..." line anymore — that
+  // was the source of unprofessional, repetitive output.
+  const body = paragraphs.join('\n\n');
 
-${body}
+  // Append exactly one closing question — only if the source doesn't
+  // already end with a question mark. Keeps the post feeling like an
+  // article ending, not a forced template.
+  const endsWithQuestion = /\?\s*$/.test(body);
+  if (endsWithQuestion) return body;
 
-The 3 things that actually matter:
-
-→ Be specific, not generic
-→ Lead with the outcome, not the process
-→ End with a question your reader can't ignore
-
-Which part resonates most with you?`;
+  return `${body}\n\nWhat do you think — should responses like this be the new normal?`;
 }
