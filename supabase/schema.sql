@@ -855,3 +855,23 @@ DROP POLICY IF EXISTS "Users can delete own post images" ON storage.objects;
 CREATE POLICY "Users can delete own post images"
   ON storage.objects FOR DELETE
   USING (bucket_id = 'post-images' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ============================================================================
+-- 10. RECONCILE — run once at the end so denormalized counts match reality
+--     (No-op on a fresh seed; corrects any drift on a partially-migrated DB.)
+-- ============================================================================
+UPDATE posts p
+SET likes_count = COALESCE((SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id), 0);
+
+UPDATE posts p
+SET comments_count = COALESCE((SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id), 0);
+
+UPDATE posts p
+SET shares_count = COALESCE((SELECT COUNT(*) FROM post_shares ps WHERE ps.post_id = p.id), 0);
+
+UPDATE comments c
+SET likes_count = COALESCE((SELECT COUNT(*) FROM comment_likes cl WHERE cl.comment_id = c.id), 0);
+
+UPDATE users u
+SET follower_count  = COALESCE((SELECT COUNT(*) FROM follows f WHERE f.following_id = u.id), 0),
+    following_count = COALESCE((SELECT COUNT(*) FROM follows f WHERE f.follower_id  = u.id), 0);

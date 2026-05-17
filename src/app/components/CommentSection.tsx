@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, Send, Trash2, Loader2, Sparkles, Heart, CornerDownRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppImage from '@/components/ui/AppImage';
@@ -85,8 +85,16 @@ export default function CommentSection({
     }
   };
 
+  // Load comments whenever the panel is open. The loadedRef guard inside
+  // loadComments() makes this a no-op on subsequent renders. Critical for
+  // post-detail pages where the panel is open by default — toggle is
+  // never called, so without this effect the list stays empty.
+  useEffect(() => {
+    if (open) loadComments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const handleToggle = () => {
-    if (!open) loadComments();
     onToggle();
   };
 
